@@ -1,0 +1,16 @@
+[workspace]
+members = ["pdfiuh-core", "pdfiuh-ui", "pdfiuh-ffi"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-only"
+authors = ["PDFIUH Contributors"]
+
+[workspace.dependencies]
+thiserror = "2.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+mimalloc = "0.1"
+slint = "1.9"
