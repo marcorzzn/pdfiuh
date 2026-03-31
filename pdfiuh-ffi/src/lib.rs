@@ -11,8 +11,15 @@ pub enum MuPdfError {
 
 pub type Result<T> = std::result::Result<T, MuPdfError>;
 
-// We mock the FFI bindings in the absence of an actual `bindgen` generated file for now.
-// In a real run, you would include `bindings.rs`.
+#[cfg(mupdf_available)]
+pub mod bindings {
+    #![allow(non_upper_case_globals)]
+    #![allow(non_camel_case_types)]
+    #![allow(non_snake_case)]
+    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+}
+
+#[cfg(not(mupdf_available))]
 pub mod bindings {
     #![allow(non_camel_case_types)]
     
@@ -39,6 +46,7 @@ pub struct MuPdfContext {
 
 impl MuPdfContext {
     pub fn new() -> Result<Self> {
+        // SAFETY: creating a new MuPDF context is safe if handled with default settings and null locks
         unsafe {
             let version = CString::new("1.23.0")?;
             let ctx = bindings::fz_new_context_imp(
@@ -62,6 +70,8 @@ impl MuPdfContext {
 
 impl Drop for MuPdfContext {
     fn drop(&mut self) {
+        // SAFETY: ctx was allocated by MuPDF, calling its native drop function is appropriate, 
+        // provided the context is not null.
         unsafe {
             if !self.ctx.is_null() {
                 bindings::fz_drop_context(self.ctx);
@@ -83,6 +93,7 @@ impl PdfDocument {
     pub fn open(ctx: &MuPdfContext, path: &str) -> Result<Self> {
         let c_path = CString::new(path)?;
         
+        // SAFETY: We verify that the context pointer is securely populated before attempting to open the document.
         unsafe {
             // Null check context
             if ctx.ctx.is_null() {
@@ -103,6 +114,7 @@ impl PdfDocument {
     }
     
     pub fn page_count(&self) -> i32 {
+        // SAFETY: counting pages is safe if both context and document are valid
         unsafe {
             if self.doc.is_null() || self.ctx.is_null() {
                 return 0;
@@ -114,6 +126,7 @@ impl PdfDocument {
 
 impl Drop for PdfDocument {
     fn drop(&mut self) {
+        // SAFETY: memory lifecycle managed via native fz_drop_document API 
         unsafe {
             if !self.doc.is_null() && !self.ctx.is_null() {
                 bindings::fz_drop_document(self.ctx, self.doc);

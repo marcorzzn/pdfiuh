@@ -38,7 +38,7 @@ impl PageRenderer {
     ) -> Result<&Image> {
         // Check cache first
         if self.cache.contains_key(&page_num) {
-            return Ok(self.cache.get(&page_num).unwrap());
+            return self.cache.get(&page_num).ok_or_else(|| PdfiuhError::RenderError("Failed to retrieve image from cache".into()));
         }
 
         // Render via MuPDF mock (in reality calls fz_load_page, fz_new_pixmap_from_page)
@@ -50,6 +50,6 @@ impl PageRenderer {
         let image = Image::from_rgba(pixmap, simulated_width as u32, simulated_height as u32);
         self.cache.insert(page_num, image);
 
-        Ok(self.cache.get(&page_num).unwrap())
+        self.cache.get(&page_num).ok_or_else(|| PdfiuhError::RenderError("Failed to retrieve image from cache".into()))
     }
 }

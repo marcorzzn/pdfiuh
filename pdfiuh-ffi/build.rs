@@ -1,15 +1,14 @@
 use std::env;
 use std::path::PathBuf;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Only compile MuPDF if the folder actually exists.
-    // In this codex version, we are expecting it to be initialized later by the user.
     let mupdf_path = PathBuf::from("mupdf");
     
     if !mupdf_path.exists() {
         // Skip compilation to avoid failing before the user has run submodule init
         println!("cargo:warning=MuPDF submodule not found, skipping build.rs compilation for FFI.");
-        return;
+        return Ok(());
     }
 
     // Configure minimal MuPDF build
@@ -39,10 +38,13 @@ fn main() {
         .allowlist_function("fz_.*")
         .allowlist_type("fz_.*")
         .generate()
-        .expect("Unable to generate bindings");
+        .map_err(|_| "Unable to generate bindings")?;
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
+    let out_path = PathBuf::from(env::var("OUT_DIR")?);
+    bindings.write_to_file(out_path.join("bindings.rs"))?;
+
+    // Inform the compiler that real mupdf bindings are available
+    println!("cargo:rustc-cfg=mupdf_available");
+
+    Ok(())
 }
