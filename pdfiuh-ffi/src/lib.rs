@@ -1,6 +1,15 @@
 use std::ffi::CString;
 use std::ptr;
-use pdfiuh_core::{PdfiuhError, Result};
+
+#[derive(thiserror::Error, Debug)]
+pub enum MuPdfError {
+    #[error("Failed to convert string: {0}")]
+    NulError(#[from] std::ffi::NulError),
+    #[error("MuPDF internal error: {0}")]
+    Internal(String),
+}
+
+pub type Result<T> = std::result::Result<T, MuPdfError>;
 
 // We mock the FFI bindings in the absence of an actual `bindgen` generated file for now.
 // In a real run, you would include `bindings.rs`.
@@ -31,7 +40,7 @@ pub struct MuPdfContext {
 impl MuPdfContext {
     pub fn new() -> Result<Self> {
         unsafe {
-            let version = CString::new("1.23.0").map_err(|e| PdfiuhError::FfiError(e.to_string()))?;
+            let version = CString::new("1.23.0")?;
             let ctx = bindings::fz_new_context_imp(
                 ptr::null(),  // allocator (use default)
                 ptr::null(),  // locks
@@ -40,7 +49,7 @@ impl MuPdfContext {
             );
             
             if ctx.is_null() {
-                return Err(PdfiuhError::FfiError("Failed to create MuPDF context".into()));
+                return Err(MuPdfError::Internal("Failed to create MuPDF context".into()));
             }
             
             // Register document handlers
@@ -72,18 +81,18 @@ pub struct PdfDocument {
 
 impl PdfDocument {
     pub fn open(ctx: &MuPdfContext, path: &str) -> Result<Self> {
-        let c_path = CString::new(path).map_err(|e| PdfiuhError::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())))?;
+        let c_path = CString::new(path)?;
         
         unsafe {
             // Null check context
             if ctx.ctx.is_null() {
-                return Err(PdfiuhError::FfiError("MuPDF context is null".into()));
+                return Err(MuPdfError::Internal("MuPDF context is null".into()));
             }
 
             let doc = bindings::fz_open_document(ctx.ctx, c_path.as_ptr());
             
             if doc.is_null() {
-                return Err(PdfiuhError::FfiError(format!("Failed to open PDF: {}", path)));
+                return Err(MuPdfError::Internal(format!("Failed to open PDF: {}", path)));
             }
             
             Ok(PdfDocument {

@@ -15,7 +15,7 @@ pub enum PdfiuhError {
     RenderError(String),
     
     #[error("FFI error: {0}")]
-    FfiError(String),
+    FfiError(#[from] pdfiuh_ffi::MuPdfError),
 }
 
 pub type Result<T> = std::result::Result<T, PdfiuhError>;
