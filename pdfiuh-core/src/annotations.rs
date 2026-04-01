@@ -1,13 +1,24 @@
 use serde::{Deserialize, Serialize};
-use crate::{PdfiuhError, Result};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Point {
     pub x: f32,
     pub y: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Size {
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Rect {
+    pub origin: Point,
+    pub size: Size,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -15,82 +26,48 @@ pub struct Color {
     pub a: u8,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Size {
-    pub width: f32,
-    pub height: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Annotation {
-    Highlight {
-        page: usize,
-        bounds: Vec<Rect>,  // Multiple rects for text spanning lines
-        color: Color,
-    },
-    FreehandStroke {
-        page: usize,
-        points: Vec<Point>,
-        color: Color,
-        thickness: f32,
-    },
-    TextBox {
-        page: usize,
-        position: Point,
-        size: Size,
-        content: String,
-        font_size: f32,
-    },
-}
-
-impl Annotation {
-    pub fn page(&self) -> usize {
-        match self {
-            Annotation::Highlight { page, .. } => *page,
-            Annotation::FreehandStroke { page, .. } => *page,
-            Annotation::TextBox { page, .. } => *page,
-        }
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
     }
 }
 
+/// The atomic unit of our Vector Overlay (Glass Pane).
+/// Highly optimized and `bincode`-ready for ultra-fast dumping to RAM/Disk.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Annotation {
+    Highlight { rects: Vec<Rect>, color: Color },
+    Underline { rects: Vec<Rect>, color: Color },
+    FreehandInk { points: Vec<Point>, color: Color, thickness: f32 },
+    StickyNote { origin: Point, text: String, color: Color },
+}
+
+/// A collection of annotations localized to a specific physical page index.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AnnotationLayer {
-    annotations: Vec<Annotation>,
+    pub page_num: usize,
+    pub annotations: Vec<Annotation>,
 }
 
 impl AnnotationLayer {
-    pub fn new() -> Self {
+    pub fn new(page_num: usize) -> Self {
         Self {
+            page_num,
             annotations: Vec::new(),
         }
     }
 
-    pub fn add(&mut self, annotation: Annotation) {
+    pub fn add_annotation(&mut self, annotation: Annotation) {
         self.annotations.push(annotation);
     }
 
-    pub fn get_for_page(&self, page: usize) -> Vec<&Annotation> {
-        self.annotations
-            .iter()
-            .filter(|a| a.page() == page)
-            .collect()
+    /// Fast and lossless serialization via `bincode`, fulfilling the core architecture mandate.
+    pub fn serialize_to_bytes(&self) -> Result<Vec<u8>, bincode::Error> {
+        bincode::serialize(self)
     }
 
-    pub fn serialize(&self) -> Result<Vec<u8>> {
-        bincode::serialize(&self.annotations)
-            .map_err(|e| PdfiuhError::ParseError(format!("Serialization Error: {}", e)))
-    }
-    
-    pub fn deserialize(data: &[u8]) -> Result<Self> {
-        let annotations: Vec<Annotation> = bincode::deserialize(data)
-            .map_err(|e| PdfiuhError::ParseError(format!("Deserialization Error: {}", e)))?;
-        Ok(Self { annotations })
+    /// Hydration from `bincode` bytes back to working memory.
+    pub fn deserialize_from_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
+        bincode::deserialize(bytes)
     }
 }
