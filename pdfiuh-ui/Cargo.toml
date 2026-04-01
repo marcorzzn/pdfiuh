@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 authors.workspace = true
 
+[[bin]]
+name = "pdfiuh"
+path = "src/main.rs"
+
 [dependencies]
 pdfiuh-core = { path = "../pdfiuh-core" }
 pdfiuh-ffi = { path = "../pdfiuh-ffi" }
@@ -13,3 +17,4 @@ anyhow.workspace = true
 
 [build-dependencies]
 slint-build = { version = "1.9" }
+winres = "0.1"
