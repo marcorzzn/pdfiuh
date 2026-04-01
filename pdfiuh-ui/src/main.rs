@@ -1,10 +1,25 @@
+#![windows_subsystem = "windows"]
 slint::include_modules!();
-
 use std::sync::mpsc;
 use std::thread;
 use slint::{Image, SharedPixelBuffer, Rgba8Pixel};
 use pdfiuh_core::render::PageRenderer;
 use pdfiuh_ffi::{MuPdfContext, PdfDocument};
+use std::fs::OpenOptions;
+use std::io::Write;
+
+fn log_debug(msg: &str) {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("pdfiuh_debug.log")
+        .unwrap();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let _ = writeln!(file, "[{}] {}", now, msg);
+}
 
 enum WorkerCommand {
     OpenFile(String, f32),
@@ -12,7 +27,11 @@ enum WorkerCommand {
 }
 
 fn main() -> anyhow::Result<()> {
-    let ui = MainWindow::new().map_err(|e| anyhow::anyhow!("Slint init error: {:?}", e))?;
+    log_debug("--- Avvio PDFIUH ---");
+    let ui = MainWindow::new().map_err(|e| {
+        log_debug(&format!("Slint init error: {:?}", e));
+        anyhow::anyhow!("Slint init error: {:?}", e)
+    })?;
     
     // MPSC Channel for robust UI-to-Worker communication
     let (tx, rx) = mpsc::channel::<WorkerCommand>();
@@ -102,7 +121,9 @@ fn main() -> anyhow::Result<()> {
     });
 
     // Boot command
-    let _ = tx.send(WorkerCommand::OpenFile("document.pdf".into(), 1.0));
+    let initial_pdf = std::env::args().nth(1).unwrap_or_else(|| "document.pdf".into());
+    log_debug(&format!("Tentativo apertura iniziale: {}", initial_pdf));
+    let _ = tx.send(WorkerCommand::OpenFile(initial_pdf, 1.0));
 
     ui.run().map_err(|e| anyhow::anyhow!("Slint run error: {:?}", e))?;
     Ok(())
