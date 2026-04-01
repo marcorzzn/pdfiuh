@@ -30,26 +30,26 @@ pub mod bindings {
     
     pub const FZ_STORE_DEFAULT: usize = 256 * 1024 * 1024;
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_new_context_imp(_alloc: *const fz_alloc_context, _locks: *const fz_locks_context, _max_store: usize, _version: *const std::ffi::c_char) -> *mut fz_context {
         1 as *mut fz_context
     }
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_drop_context(_ctx: *mut fz_context) {}
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_register_document_handlers(_ctx: *mut fz_context) {}
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_open_document(_ctx: *mut fz_context, _filename: *const std::ffi::c_char) -> *mut fz_document {
         2 as *mut fz_document
     }
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_drop_document(_ctx: *mut fz_context, _doc: *mut fz_document) {}
     
-    #[no_mangle]
+    #[unsafe(no_mangle)]
     pub unsafe extern "C" fn fz_count_pages(_ctx: *mut fz_context, _doc: *mut fz_document) -> std::ffi::c_int {
         1 // Return at least 1 page for safe mock testing
     }

@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
         let ctx = ctx_result.unwrap();
         let mut renderer = PageRenderer::new(ctx);
         let mut current_doc: Option<PdfDocument> = None;
-        let mut current_page = 1;
+        let mut _current_page = 1;
 
         while let Ok(msg) = rx.recv() {
             let (page_num, zoom) = match msg {
@@ -41,11 +41,11 @@ fn main() -> anyhow::Result<()> {
                     // In a production scenario, we ensure safely scoped contexts
                     // Here we fake passing the context from the renderer
                     current_doc = PdfDocument::open(&MuPdfContext::new().unwrap(), &path).ok();
-                    current_page = 1;
+                    _current_page = 1;
                     (1, zoom)
                 },
                 WorkerCommand::RenderPage(p, zoom) => {
-                    current_page = p;
+                    _current_page = p;
                     (p, zoom)
                 }
             };

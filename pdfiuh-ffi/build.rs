@@ -2,6 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("cargo::rustc-check-cfg=cfg(mupdf_available)");
     // Only compile MuPDF if the folder actually exists.
     let mupdf_path = PathBuf::from("mupdf");
     

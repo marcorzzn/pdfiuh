@@ -58,7 +58,7 @@ Per supervisionare efficacemente l'IA, il Project Manager deve completare un per
 
 ### Fase 3: PDF + UI (Settimane 9-12)
 * **Obiettivo:** Combinare parsing e interfaccia.
-* **Output Pratico:** "Aether Mini", un visualizzatore base usando crate esistenti e Slint UI.
+* **Output Pratico:** "Pdfiuh Mini", un visualizzatore base usando crate esistenti e Slint UI.
 * **Graduation:** Capacità di leggere 500 righe di Rust intermedio, diagnosticare un segfault e validare codice FFI scritto dall'IA.
 
 ---
@@ -114,4 +114,4 @@ Rifiuta immediatamente il codice generato dall'IA se presenta:
 
 ### Phase 4: Testing & QA
 1. Scrivi test di integrazione in `pdfiuh-core/tests/integration.rs` (apertura, conteggio pagine, render, serializzazione) assumendo fixture nella cartella `tests/fixtures/`.
-2. Configura `criterion` per il benchmarking dei colli di bottiglia in `aether-core/benches/memory_profile.rs`.
+2. Configura `criterion` per il benchmarking dei colli di bottiglia in `pdfiuh-core/benches/memory_profile.rs`.
