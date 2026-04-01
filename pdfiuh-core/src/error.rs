@@ -14,6 +14,7 @@ pub enum PdfiuhError {
     #[error("Rendering error: {0}")]
     RenderError(String),
     
+    #[cfg(not(target_arch = "wasm32"))]
     #[error("FFI error: {0}")]
     FfiError(#[from] pdfiuh_ffi::MuPdfError),
 }
