@@ -1,34 +1,70 @@
-# pdfiuh
+# pdfiuh — PDF Web Reader
 
-**pdfiuh** è un lettore PDF nativo, ultra-leggero e ad alte prestazioni.
+Lettore PDF con annotazioni, progettato per GitHub Pages. Offline-first, single-user, ottimizzato anche per hardware legacy.
 
-## Descrizione
+## Stack
 
-Il progetto è ingegnerizzato per garantire prestazioni estreme sul limite inferiore dell'hardware operativo globale, ottimizzato specificamente per essere fluido e reattivo in ambienti con scarse risorse di calcolo e memoria, garantendo al contempo robustezza e sicurezza tramite l'impiego del linguaggio Rust.
+| Layer | Tecnologia |
+|---|---|
+| Framework UI | Svelte 5 + TypeScript + Vite |
+| Rendering PDF | PDF.js v4+ (Web Worker, OffscreenCanvas) |
+| Persistenza | Dexie.js + IndexedDB |
+| PWA | Service Worker + manifest |
+| Export | pdf-lib (PDF embed) + XFDF (sidecar) |
 
-Il sistema è basato su tre componenti principali (organizzati come workspace Cargo):
-* **core**: il motore Rust nativo di elaborazione senza GC.
-* **desktop**: componente FFI per i binding a `mupdf` e interfaccia grafica basata su `slint` UI.
-* **web**: interfaccia orientata al web e build webassembly.
+## Cosa fa
 
-## Prerequisiti
+- **Carica PDF** via drag & drop o selezione file
+- **Rendering** su Canvas con Web Worker (thread separato)
+- **Annotazioni**: evidenziazione, note, inchiostro, sottolineatura, barrato
+- **Persistenza automatica**: annotazioni salvate in IndexedDB
+- **Export**: download XFDF (ri-editabile) o PDF con annotazioni incorporate
+- **PWA**: installabile, funziona offline
+- **Degradazione adattiva**: rileva hardware e scala le risorse
 
-* **Rust:** Toolchain aggiornata (Edition 2024).
-
-## Build
-
-Per compilare l'intero workspace, naviga nella root e avvia:
+## Setup
 
 ```bash
-cargo build --release
+npm install
+npm run dev        # server di sviluppo
+npm run build      # build per produzione
+npm run preview    # preview build produzione
+npm run check      # type check Svelte
+npm test           # Vitest
 ```
 
-## Struttura del progetto
-* `core/`: Il logic engine del progetto, integrato per il parsing PDF e la logica condivisa.
-* `desktop/`: Implementazioni desktop, contenente binding FFI (desktop/ffi) e UI (desktop/ui).
-* `web/`: Client e binding web-based.
-* `assets/`, `docs/`, `scripts/`: Assets grafici, documentazione aggiuntiva e utility scripts.
+## Struttura
 
-## Licenza
+```
+src/
+├── core/            # Logica di business
+│   ├── annotation-store.ts    # Dexie.js CRUD
+│   ├── annotation-export.ts   # XFDF import/export
+│   ├── pdf-export.ts          # pdf-lib: embed annotazioni
+│   ├── pdf-loader.ts          # caricamento + hashing PDF
+│   └── device-profile.ts      # hardware detection
+├── workers/         # Web Workers
+│   ├── pdf-renderer.worker.ts # rendering off-main-thread
+│   └── search.worker.ts       # full-text search (v2)
+├── ui/              # Componenti Svelte
+│   ├── Viewer.svelte          # Canvas + navigazione
+│   ├── Toolbar.svelte         # Zoom, annotazioni, salvataggio
+│   ├── AnnotationLayer.svelte # SVG overlay
+│   ├── Sidebar.svelte         # Lista annotazioni
+│   └── DropZone.svelte        # Drag & drop apertura PDF
+├── stores/          # Svelte stores
+│   ├── viewer.store.ts        # pagina, zoom, rotazione
+│   ├── annotations.store.ts   # annotazioni in memoria
+│   └── pdf.store.ts           # buffer PDF corrente
+└── styles/
+    ├── global.css             # Variabili CSS, reset
+    └── themes.css             # Tema chiaro/scuro
+```
 
-Questo progetto è rilasciato sotto la licenza AGPL-3.0-only.
+## Roadmap
+
+- **Fase 1** — Rendering base + navigazione
+- **Fase 2** — Annotazioni + persistenza IndexedDB
+- **Fase 3** — Export XFDF + pdf-lib
+- **Fase 4** — PWA + ottimizzazioni low-end
+- **Fase 5** — Ricerca full-text (Lunr.js)

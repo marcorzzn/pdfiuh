@@ -5,13 +5,11 @@ on:
     branches:
       - main
 
-# Imposta i permessi per il deployment su GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Permette un solo deployment simultaneo, annullando quelli in corso per le run precedenti
 concurrency:
   group: "pages"
   cancel-in-progress: true
@@ -27,50 +25,26 @@ jobs:
       - name: Checkout del codice
         uses: actions/checkout@v4
 
-      # --- Step 1: Rust e WASM ---
-      - name: Setup toolchain Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Installazione wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Compilazione del core Rust in WebAssembly
-        working-directory: core
-        run: wasm-pack build --target web --out-dir ../web/pkg
-
-      # --- Step 2: Node.js e Vite ---
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Installazione delle dipendenze npm
-        working-directory: web
+      - name: Installazione delle dipendenze
         run: npm ci
 
       - name: Build con Vite
-        working-directory: web
         run: npm run build
 
-      # --- Gestione header per SharedArrayBuffer su GitHub Pages ---
-      # Questa parte è fondamentale per i Worker di PDF.js su un deployment statico
-      # Se la feature SharedArrayBuffer è essenziale, GitHub Pages di base non invia
-      # gli header COOP e COEP. Se non dovesse funzionare senza, bisogna usare un Service Worker
-      # per iniettarli (come coi-serviceworker). Lo menziono perché GitHub Pages è noto per non
-      # supportare file `_headers` come Netlify/Cloudflare.
-
-      # --- Step 3: Deployment ---
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v4
 
       - name: Caricamento degli artifact per Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'web/dist'
+          path: dist
 
       - name: Deployment su GitHub Pages
         id: deployment
