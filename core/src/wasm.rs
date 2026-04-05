@@ -24,7 +24,7 @@ impl PdfWebEngine {
 
     #[wasm_bindgen]
     pub fn set_page(&mut self, page_num: usize) {
-        if self.layer.page_number != page_num {
+        if self.layer.page_num != page_num {
             self.layer = AnnotationLayer::new(page_num);
             self.current_ink.clear();
         }
@@ -69,8 +69,8 @@ impl PdfWebEngine {
         if self.current_ink.len() >= 2 {
             let color = Color::new(r, g, b, a);
             let points = std::mem::take(&mut self.current_ink);
-            let annotation = Annotation::Ink {
-                paths: vec![points],
+            let annotation = Annotation::FreehandInk {
+                points,
                 color,
                 thickness,
             };
@@ -85,9 +85,9 @@ impl PdfWebEngine {
     #[wasm_bindgen]
     pub fn add_sticky_note(&mut self, x: f32, y: f32, text: &str) {
         let color = Color::new(255, 255, 153, 255);
-        let annotation = Annotation::Note {
+        let annotation = Annotation::StickyNote {
             origin: Point { x, y },
-            content: text.to_string(),
+            text: text.to_string(),
             color,
         };
         self.layer.add_annotation(annotation);
@@ -95,7 +95,7 @@ impl PdfWebEngine {
 
     #[wasm_bindgen]
     pub fn clear_annotations(&mut self) {
-        let page_num = self.layer.page_number;
+        let page_num = self.layer.page_num;
         self.layer = AnnotationLayer::new(page_num);
         self.current_ink.clear();
     }

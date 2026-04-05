@@ -21,3 +21,14 @@ Thumbs.db
 *.njsproj
 *.sln
 web/node_modules
+web/public/cmaps/
+web/public/standard_fonts/
+web/public/cmaps
+web/public/standard_fonts
+/web/public/cmaps/
+/web/public/standard_fonts/
+web/public/cmaps/*
+web/public/standard_fonts/*
+/web/public/
+web/dist/
+/web/pkg/

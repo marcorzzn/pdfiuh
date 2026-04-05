@@ -50,9 +50,10 @@ async function handleLoad({ buffer }) {
     pdfDocument = null;
   }
 
-  try {
-    const typedArray = new Uint8Array(buffer);
+  const typedArray = new Uint8Array(buffer);
 
+  try {
+    // Attempt to load with local assets
     const loadingTask = pdfjsLib.getDocument({
       data: typedArray,
       // Abbiamo già il buffer completo in memoria: inutile range request.
@@ -60,12 +61,31 @@ async function handleLoad({ buffer }) {
       disableStream: true,
       // Riduci overhead font per hardware lento.
       useSystemFonts: true,
+      cMapUrl: '/pdfiuh/cmaps/',
+      cMapPacked: true,
+      standardFontDataUrl: '/pdfiuh/standard_fonts/',
     });
 
     pdfDocument = await loadingTask.promise;
     self.postMessage({ type: 'LOADED', pageCount: pdfDocument.numPages });
   } catch (err) {
-    self.postMessage({ type: 'LOAD_ERROR', message: String(err?.message ?? err) });
+    console.warn('[pdf-worker] Local assets failed, fallback to CDN', err);
+    try {
+      // Fallback to CDN if local assets are missing or fail
+      const fallbackTask = pdfjsLib.getDocument({
+        data: typedArray,
+        disableRange: true,
+        disableStream: true,
+        useSystemFonts: true,
+        cMapUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@5.6.205/standard_fonts/',
+      });
+      pdfDocument = await fallbackTask.promise;
+      self.postMessage({ type: 'LOADED', pageCount: pdfDocument.numPages });
+    } catch (fallbackErr) {
+      self.postMessage({ type: 'LOAD_ERROR', message: String(fallbackErr?.message ?? fallbackErr) });
+    }
   }
 }
 
