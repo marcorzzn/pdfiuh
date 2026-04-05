@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   base: '/pdfiuh/',
@@ -8,7 +9,18 @@ export default defineConfig({
       compilerOptions: {
         runes: true
       }
+    }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      manifest: false,
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,pdf,wasm,webmanifest}']
+      }
     })
   ],
-  worker: { format: 'es' }
+  worker: { format: 'es' },
+  optimizeDeps: {
+    include: ['pdfjs-dist']
+  }
 });

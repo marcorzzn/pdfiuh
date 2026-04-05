@@ -119,10 +119,10 @@
   bind:this={svgEl}
   class="annotation-layer"
   xmlns="http://www.w3.org/2000/svg"
-  on:mousedown={onPointerDown}
-  on:mousemove={onPointerMove}
-  on:mouseup={onPointerUp}
-  on:mouseleave={onPointerUp}
+  onmousedown={onPointerDown}
+  onmousemove={onPointerMove}
+  onmouseup={onPointerUp}
+  onmouseleave={onPointerUp}
 >
   {#each $annotations as ann (ann.id)}
     {#if ann.pageNumber === $currentPage}
@@ -184,10 +184,10 @@
   {#if notePoint}
     <foreignObject x={notePoint.x} y={notePoint.y} width="220" height="100">
       <div class="note-input-box">
-        <textarea bind:value={noteText} placeholder="Scrivi nota..." autofocus />
+        <textarea bind:value={noteText} placeholder="Scrivi nota..."></textarea>
         <div class="note-actions">
-          <button class="btn" on:click={saveNote}>Salva</button>
-          <button class="btn" on:click={() => { notePoint = null; noteText = ''; }}>Annulla</button>
+          <button class="btn" onclick={saveNote}>Salva</button>
+          <button class="btn" onclick={() => { notePoint = null; noteText = ''; }}>Annulla</button>
         </div>
       </div>
     </foreignObject>

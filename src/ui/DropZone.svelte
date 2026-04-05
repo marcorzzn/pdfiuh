@@ -1,10 +1,7 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
   import { loadPDFAsArrayBuffer, computeDocId } from '../core/pdf-loader';
 
-  const dispatch = createEventDispatcher<{
-    load: { docId: string; buffer: ArrayBuffer; fileName: string };
-  }>();
+  let { onload }: { onload: (docId: string, buffer: ArrayBuffer, fileName: string) => void } = $props();
 
   let dragging = $state(false);
 
@@ -12,7 +9,7 @@
     if (file.type !== 'application/pdf') return;
     const buffer = await loadPDFAsArrayBuffer(file);
     const docId = await computeDocId(buffer);
-    dispatch('load', { docId, buffer, fileName: file.name });
+    onload(docId, buffer, file.name);
   }
 
   function onDragOver(e: DragEvent) {
@@ -40,15 +37,15 @@
 <div
   class="dropzone"
   class:dragging
-  on:dragover={onDragOver}
-  on:dragleave={onDragLeave}
-  on:drop={onDrop}
+  ondragover={onDragOver}
+  ondragleave={onDragLeave}
+  ondrop={onDrop}
 >
   <div class="content">
     <h1>pdfiuh</h1>
     <p>Trascina un file PDF qui oppure</p>
     <label class="btn" for="file-input">Scegli file</label>
-    <input id="file-input" type="file" accept="application/pdf" on:change={onFileInput} />
+    <input id="file-input" type="file" accept="application/pdf" onchange={onFileInput} />
   </div>
 </div>
 

@@ -1,11 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import Toolbar from './ui/Toolbar.svelte';
   import Viewer from './ui/Viewer.svelte';
   import AnnotationLayer from './ui/AnnotationLayer.svelte';
   import Sidebar from './ui/Sidebar.svelte';
   import DropZone from './ui/DropZone.svelte';
-  import { currentPdfBuffer, setPdfBuffer } from './stores/pdf.store';
+  import { setPdfBuffer } from './stores/pdf.store';
   import './styles/global.css';
   import './styles/themes.css';
 
@@ -27,14 +26,14 @@
 </script>
 
 {#if !pdfLoaded}
-  <DropZone on:load={(e: CustomEvent) => handlePdfLoad(e.detail.docId, e.detail.buffer, e.detail.fileName)} />
+  <DropZone onload={(d, b, n) => handlePdfLoad(d, b, n)} />
 {:else}
   <Toolbar
     docId={currentDocId || ''}
-    on:sidebar={toggleSidebar}
+    onsidebar={toggleSidebar}
   />
   <div class="main-content" class:sidenav-open={sidebarOpen}>
-    <Sidebar docId={currentDocId || ''} open={sidebarOpen} on:close={toggleSidebar} />
+    <Sidebar docId={currentDocId || ''} open={sidebarOpen} onclose={toggleSidebar} />
     <div class="viewer-area">
       <Viewer docId={currentDocId || ''} />
       <AnnotationLayer docId={currentDocId || ''} />
