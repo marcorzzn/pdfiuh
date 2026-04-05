@@ -22,5 +22,8 @@ export default defineConfig({
   worker: { format: 'es' },
   optimizeDeps: {
     include: ['pdfjs-dist']
+  },
+  test: {
+    environment: 'happy-dom'
   }
 });
