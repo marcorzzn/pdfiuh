@@ -28,3 +28,7 @@ criterion = "0.5"
 [[bench]]
 name = "memory_profile"
 harness = false
+
+[target.'cfg(target_arch = "wasm32")'.dependencies.web-sys]
+version = "0.3"
+features = ["console", "CanvasRenderingContext2d", "HtmlCanvasElement", "ImageData"]

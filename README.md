@@ -1,33 +1,50 @@
 # pdfiuh
 
-**pdfiuh** è un lettore PDF nativo, ultra-leggero e ad alte prestazioni.
+[![Deploy to GitHub Pages](https://github.com/marcorzzn/pdfiuh/actions/workflows/deploy.yml/badge.svg)](https://github.com/marcorzzn/pdfiuh/actions)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-marcorzzn.github.io%2Fpdfiuh-blue?style=for-the-badge)](https://marcorzzn.github.io/pdfiuh/)
 
-## Descrizione
+**pdfiuh** è ora un lettore PDF Web e strumento di annotazione ultra-leggero, potenziato da un core vettoriale in **Rust** compilato via **WebAssembly (WASM)**.
 
-Il progetto è ingegnerizzato per garantire prestazioni estreme sul limite inferiore dell'hardware operativo globale, ottimizzato specificamente per essere fluido e reattivo in ambienti con scarse risorse di calcolo e memoria, garantendo al contempo robustezza e sicurezza tramite l'impiego del linguaggio Rust.
+👉 **[Prova pdfiuh direttamente nel browser!](https://marcorzzn.github.io/pdfiuh/)**
+
+## Descrizione (Web Edition Pivot)
+
+A seguito di un pivot architetturale strategico, il focus primario di `pdfiuh` è la Web Edition. Il software garantisce prestazioni estreme e massima fluidità anche in hardware fortemente vincolati (es. single-core, <2GB RAM), pur offrendo complete funzionalità per la lettura dei documenti e l'annotazione (Freehand, evidenziatore, ecc).
+
+Il sistema sfrutta un approccio ibrido unico:
+1.  Il rendering raster e la gestione dei file PDF sono delegati asincronamente in un Web Worker al collaudato motore `pdf.js` per garantire la massima stabilità in Javascript.
+2.  L'intera pipeline di annotazioni, logica vettoriale e manipolazione geometrica e interazioni sono computate da un modulo **WebAssembly** generato a partire da codice Rust che funge da core nativo.
+
+## Architettura
 
 Il sistema è basato su tre componenti principali (organizzati come workspace Cargo):
-* **core**: il motore Rust nativo di elaborazione senza GC.
-* **desktop**: componente FFI per i binding a `mupdf` e interfaccia grafica basata su `slint` UI.
-* **web**: interfaccia orientata al web e build webassembly.
+* **core**: Il logic engine scritto in Rust, compilato via `wasm-pack` come libreria WASM. Contiene la logica vettoriale ad alte prestazioni.
+* **web**: Frontend basato su **React 19** e **Vite**, ingegnerizzato con un'architettura _"Double Canvas"_ (un canvas di sfondo per i pixel PDF e un overlay trasparente per i vettori WASM interattivi).
+* **desktop**: Componente FFI legacy per binding di terze parti e prove di concetto native.
 
-## Prerequisiti
+## Prerequisiti Sviluppo
 
-* **Rust:** Toolchain aggiornata (Edition 2024).
+* **Node.js** v20+ e `npm` (per l'ecosistema web).
+* **Rust:** Toolchain aggiornata (Edition 2024), con il target configurato per webassembly: `rustup target add wasm32-unknown-unknown` e `wasm-pack`.
 
-## Build
+## Build (Locale per la Web Edition)
 
-Per compilare l'intero workspace, naviga nella root e avvia:
+Per sviluppare l'intera applicazione in locale, puoi fare il build sequenziale:
 
 ```bash
-cargo build --release
+# 1. Compila il motore Rust in WASM
+cd core
+wasm-pack build --target web --out-dir ../web/pkg
+
+# 2. Installa le dipendenze web e fai partire il server Vite
+cd ../web
+npm install
+npm run dev
 ```
 
-## Struttura del progetto
-* `core/`: Il logic engine del progetto, integrato per il parsing PDF e la logica condivisa.
-* `desktop/`: Implementazioni desktop, contenente binding FFI (desktop/ffi) e UI (desktop/ui).
-* `web/`: Client e binding web-based.
-* `assets/`, `docs/`, `scripts/`: Assets grafici, documentazione aggiuntiva e utility scripts.
+## Deployment CI/CD
+
+Ogni push sul branch `main` innescherà automaticamente una GitHub Action che compilerà il core in WASM, farà il bundle del frontend Vite e aggiornerà la release su **GitHub Pages** al link soprastante. Tutto il carico computazionale viene evitato sulle macchine locali degli sviluppatori!
 
 ## Licenza
 

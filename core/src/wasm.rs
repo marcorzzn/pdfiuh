@@ -84,3 +84,22 @@ impl PdfWebEngine {
         }
     }
 }
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+impl PdfWebEngine {
+    #[wasm_bindgen]
+    pub fn load_document(&mut self, _bytes: &[u8]) -> Result<(), JsValue> {
+        // Fallback temporaneo per WASM dato che non abbiamo MuPDF qui
+        // Nella vera architettura, il rendering raster verrà demandato a PDF.js lato JS
+        // e questo core gestirà solo la logica dei layer e vettoriale.
+        web_sys::console::log_1(&"Document loaded virtually in WASM core.".into());
+        Ok(())
+    }
+
+    #[wasm_bindgen]
+    pub fn render_page(&self, _page_num: usize) -> Result<(), JsValue> {
+        web_sys::console::log_1(&"Page rendering logic is deferred to PDF.js on the frontend.".into());
+        Ok(())
+    }
+}
