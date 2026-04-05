@@ -16,8 +16,7 @@ import init, { PdfWebEngine } from '../pkg/pdfiuh_core.js';
 // 0. Configurazione PDF.js
 // ---------------------------------------------------------------------------
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
 // ---------------------------------------------------------------------------
 // 1. Costanti e stato globale
@@ -127,6 +126,11 @@ function onWorkerMessage(e) {
       redrawAnnotations();
       setStatus(`Pagina ${state.currentPage} / ${state.pageCount}`);
       state.isRendering = false;
+      // Mostra il contenitore se era nascosto all'avvio
+      const viewer = document.getElementById('viewer-container');
+      if (viewer && viewer.classList.contains('hidden')) {
+          viewer.classList.remove('hidden');
+      }
       break;
     }
 
@@ -162,6 +166,11 @@ async function loadPdfFile(file) {
     state.pageCount   = 0;
     state.docHash     = await computeFileHash(file);
     updateNavUI();
+
+    // Distruggi esplicitamente il documento precedente nel worker
+    if (state.pdfWorker) {
+        state.pdfWorker.postMessage({ type: 'DESTROY' });
+    }
 
     // Trasferisce il buffer al Worker: operazione zero-copy.
     const buffer = await file.arrayBuffer();

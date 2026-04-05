@@ -104,6 +104,12 @@
             padding: 20px;
             overflow: auto;
             position: relative;
+            transition: opacity 0.3s ease;
+        }
+
+        .viewer-container.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         #pdf-container {
@@ -234,7 +240,7 @@
         <span id="status">In attesa di file...</span>
     </div>
     
-    <div class="viewer-container" id="viewer-container">
+    <div class="viewer-container hidden" id="viewer-container">
         <div id="pdf-container">
             <canvas id="pdf-canvas"></canvas>
             <canvas id="glass-pane"></canvas>

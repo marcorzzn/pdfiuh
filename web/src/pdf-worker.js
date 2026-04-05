@@ -33,10 +33,26 @@ let pdfDocument = null;
 
 self.addEventListener('message', async (e) => {
   const { type } = e.data;
-  if      (type === 'LOAD')   await handleLoad(e.data);
-  else if (type === 'RENDER') await handleRender(e.data);
+  if      (type === 'LOAD')    await handleLoad(e.data);
+  else if (type === 'RENDER')  await handleRender(e.data);
+  else if (type === 'DESTROY') await handleDestroy();
   else    console.warn('[pdf-worker] Tipo messaggio sconosciuto:', type);
 });
+
+// ---------------------------------------------------------------------------
+// Gestione Memoria (Regola d'Oro)
+// ---------------------------------------------------------------------------
+
+async function handleDestroy() {
+  if (pdfDocument) {
+    try {
+      await pdfDocument.destroy();
+    } catch (err) {
+      console.warn('[pdf-worker] Errore in destroy():', err);
+    }
+    pdfDocument = null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // LOAD
@@ -46,11 +62,8 @@ self.addEventListener('message', async (e) => {
  * @param {{ buffer: ArrayBuffer }} data
  */
 async function handleLoad({ buffer }) {
-  // Chiude eventuale documento precedente per liberare risorse.
-  if (pdfDocument) {
-    await pdfDocument.destroy().catch(() => {});
-    pdfDocument = null;
-  }
+  // Assicura la pulizia del documento precedente
+  await handleDestroy();
 
   try {
     const typedArray = new Uint8Array(buffer);
