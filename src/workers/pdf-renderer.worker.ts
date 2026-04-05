@@ -1,7 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // pdfjs-dist runs inside this Vite-bundled worker context.
-// We cast getDocument options to bypass the workerPort type limitation.
+// Disable internal worker to prevent nested worker-in-worker crash.
+pdfjsLib.GlobalWorkerOptions.disableWorker = true;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']> | null = null;
 const pageCache = new Map<number, { page: unknown }>();
