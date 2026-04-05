@@ -13,6 +13,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 import init, { PdfWebEngine } from '../pkg/pdfiuh_core.js';
 import { openDb, savePageAnnotations, loadPageAnnotations } from './db.js';
 
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).href;
+
 // ---------------------------------------------------------------------------
 // 0. Configurazione PDF.js
 // ---------------------------------------------------------------------------
