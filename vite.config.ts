@@ -10,12 +10,5 @@ export default defineConfig({
       }
     })
   ],
-  worker: { format: 'es' },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: { pdfjs: ['pdfjs-dist'] }
-      }
-    }
-  }
+  worker: { format: 'es' }
 });

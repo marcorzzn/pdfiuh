@@ -1,7 +1,7 @@
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
+import { getDocument } from 'pdfjs-dist';
 
-// Vite bundles this file as a worker; pdfjs-dist runs in-context here.
-GlobalWorkerOptions.workerSrc = '';
+// pdfjs-dist runs inside this Vite-bundled worker.
+// `workerPort: self` tells it to use the current worker context instead of spawning a nested worker.
 
 let pdfDoc: ReturnType<typeof getDocument>['promise'] | null = null;
 const pageCache = new Map<number, { page: any; viewport: any }>();
@@ -13,9 +13,9 @@ self.onmessage = async (e: MessageEvent) => {
   if (type === 'LOAD') {
     try {
       const data = new Uint8Array(payload.buffer);
-      pdfDoc = await getDocument({ data }).promise;
+      pdfDoc = getDocument({ data, workerPort: self as unknown as Worker });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const doc = await pdfDoc as any;
+      const doc = await pdfDoc.promise;
       self.postMessage({ type: 'LOADED', numPages: doc.numPages, fingerprint: doc.fingerprint });
     } catch (error) {
       self.postMessage({ type: 'ERROR', message: (error as Error).message });
