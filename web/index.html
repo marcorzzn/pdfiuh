@@ -104,6 +104,14 @@
             padding: 20px;
             overflow: auto;
             position: relative;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .viewer-container.visible {
+            visibility: visible;
+            opacity: 1;
         }
 
         #pdf-container {
@@ -194,7 +202,7 @@
             <button id="prev-btn" title="Pagina precedente">
                 <svg viewBox="0 0 16 16"><path d="M9.78 12.78a.75.75 0 0 1-1.06 0L4.47 8.53a.75.75 0 0 1 0-1.06l4.25-4.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L6.06 8l3.72 3.72a.75.75 0 0 1 0 1.06Z"></path></svg>
             </button>
-            <span id="page-info">1 / 1</span>
+            <span id="page-info">Pagina [ 0 ] di [ 0 ]</span>
             <button id="next-btn" title="Pagina successiva">
                 <svg viewBox="0 0 16 16"><path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z"></path></svg>
             </button>
@@ -204,7 +212,7 @@
             <button id="zoom-out-btn" title="Riduci Zoom">
                 <svg viewBox="0 0 16 16"><path d="M2 7.75A.75.75 0 0 1 2.75 7h10.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 7.75Z"></path></svg>
             </button>
-            <span id="zoom-info">100%</span>
+            <span id="zoom-info">1.0x</span>
             <button id="zoom-in-btn" title="Aumenta Zoom">
                 <svg viewBox="0 0 16 16"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"></path></svg>
             </button>

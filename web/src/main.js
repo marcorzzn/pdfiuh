@@ -11,13 +11,13 @@
 
 import * as pdfjsLib from 'pdfjs-dist';
 import init, { PdfWebEngine } from '../pkg/pdfiuh_core.js';
+import { openDb, savePageAnnotations, loadPageAnnotations } from './db.js';
 
 // ---------------------------------------------------------------------------
 // 0. Configurazione PDF.js
 // ---------------------------------------------------------------------------
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
 
 // ---------------------------------------------------------------------------
 // 1. Costanti e stato globale
@@ -31,7 +31,7 @@ const Tool = Object.freeze({
   NOTE:      'note',
 });
 
-const ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+const ZOOM_STEPS = [0.5, 1.0, 1.5, 2.0];
 
 /** Stato globale dell'applicazione — tutto in un unico oggetto. */
 const state = {
@@ -44,7 +44,7 @@ const state = {
   /** Pagina corrente (1-indexed) */
   currentPage: 1,
   /** Indice scala di rendering corrente in ZOOM_STEPS */
-  zoomIndex: 2, // Default: 1.0
+  zoomIndex: 1, // Default: 1.0
   /** Strumento attivo */
   tool: Tool.NONE,
   /** Flag: il puntatore è premuto sul glass pane */
@@ -124,6 +124,12 @@ function onWorkerMessage(e) {
       glassPane.height = height;
       ctx.drawImage(bitmap, 0, 0);
       bitmap.close(); // Libera immediatamente la memoria GPU.
+
+      const viewerContainer = document.getElementById('viewer-container');
+      if (viewerContainer && !viewerContainer.classList.contains('visible')) {
+        viewerContainer.classList.add('visible');
+      }
+
       redrawAnnotations();
       setStatus(`Pagina ${state.currentPage} / ${state.pageCount}`);
       state.isRendering = false;
@@ -194,8 +200,8 @@ function renderCurrentPage() {
 }
 
 function updateNavUI() {
-  pageInfoEl.textContent = `${state.pageCount > 0 ? state.currentPage : 0} / ${state.pageCount}`;
-  zoomInfoEl.textContent = `${Math.round(currentScale() * 100)}%`;
+  pageInfoEl.textContent = `Pagina [ ${state.pageCount > 0 ? state.currentPage : 0} ] di [ ${state.pageCount} ]`;
+  zoomInfoEl.textContent = `${currentScale().toFixed(1)}x`;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,36 +383,6 @@ window.addEventListener('keydown', (e) => {
 // 7. Persistenza IndexedDB
 // ---------------------------------------------------------------------------
 
-const DB_NAME    = 'pdfiuh';
-const DB_VERSION = 1;
-const STORE_NAME = 'annotations';
-
-/**
- * Apre (o crea) il database IndexedDB.
- * @returns {Promise<IDBDatabase>}
- */
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains(STORE_NAME)) {
-          req.result.createObjectStore(STORE_NAME);
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror   = () => reject(req.error);
-  });
-}
-
-/**
- * Costruisce la chiave di storage per il layer corrente.
- * Formato: `"<docHash>:<pageNum>"`.
- * @returns {string}
- */
-function storageKey() {
-  return `${state.docHash}:${state.currentPage}`;
-}
-
 /**
  * Salva il layer di annotazioni corrente in IndexedDB (async, fire-and-forget).
  */
@@ -414,11 +390,7 @@ async function saveAnnotations() {
   if (!state.engine || !state.docHash) return;
   try {
     const bytes = state.engine.serialize_annotations();
-    const db    = await openDb();
-    const tx    = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(bytes, storageKey());
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-    db.close();
+    await savePageAnnotations(state.docHash, state.currentPage, bytes);
   } catch (err) {
     console.error('[main] saveAnnotations:', err);
   }
@@ -432,13 +404,8 @@ async function saveAnnotations() {
 async function restoreAnnotations(page) {
   if (!state.engine || !state.docHash) return;
 
-  const key = `${state.docHash}:${page}`;
   try {
-    const db    = await openDb();
-    const tx    = db.transaction(STORE_NAME, 'readonly');
-    const req   = tx.objectStore(STORE_NAME).get(key);
-    const bytes = await new Promise((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = rej; });
-    db.close();
+    const bytes = await loadPageAnnotations(state.docHash, page);
 
     if (bytes instanceof Uint8Array && bytes.length > 0) {
       // Imposta prima la pagina corrente nel motore, poi deserializza.
