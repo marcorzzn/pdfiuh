@@ -1,5 +1,5 @@
 /**
- * pdfiuh Web — Orchestratore principale
+ * pdfiuh Web — Orchestratore principale (Dashboard Edition)
  *
  * Architettura Dual-Layer:
  *   Layer 0 (raster):  PDF.js dentro un Web Worker → ImageBitmap → #pdf-canvas
@@ -31,6 +31,8 @@ const Tool = Object.freeze({
   NOTE:      'note',
 });
 
+const ZOOM_STEPS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0];
+
 /** Stato globale dell'applicazione — tutto in un unico oggetto. */
 const state = {
   /** @type {PdfWebEngine | null} Motore WASM */
@@ -41,8 +43,8 @@ const state = {
   pageCount: 0,
   /** Pagina corrente (1-indexed) */
   currentPage: 1,
-  /** Scala di rendering (1.0 = 100%) */
-  scale: 1.5,
+  /** Indice scala di rendering corrente in ZOOM_STEPS */
+  zoomIndex: 2, // Default: 1.0
   /** Strumento attivo */
   tool: Tool.NONE,
   /** Flag: il puntatore è premuto sul glass pane */
@@ -54,8 +56,14 @@ const state = {
   /** Spessore inchiostro in punti */
   inkThickness: 2.5,
   /** Colore highlight (RGBA esplodito per passaggio a WASM) */
-  highlightColor: { r: 255, g: 255, b: 0, a: 128 },
+  highlightColor: { r: 137, g: 87, b: 229, a: 128 }, // GitHub purple
+  highlightStart: null,
+  isRendering: false,
 };
+
+function currentScale() {
+  return ZOOM_STEPS[state.zoomIndex];
+}
 
 // ---------------------------------------------------------------------------
 // 2. Riferimenti DOM
@@ -67,6 +75,10 @@ const ctx       = canvas.getContext('2d');
 const glassCtx  = glassPane.getContext('2d');
 const statusEl  = document.getElementById('status');
 const fileInput = document.getElementById('file-input');
+const dndOverlay= document.getElementById('dnd-overlay');
+
+const pageInfoEl = document.getElementById('page-info');
+const zoomInfoEl = document.getElementById('zoom-info');
 
 // ---------------------------------------------------------------------------
 // 3. Comunicazione con il Web Worker PDF.js
@@ -100,6 +112,7 @@ function onWorkerMessage(e) {
     case 'LOADED':
       state.pageCount = e.data.pageCount;
       setStatus(`Documento caricato — ${state.pageCount} pagine`);
+      updateNavUI();
       renderCurrentPage();
       break;
 
@@ -113,6 +126,7 @@ function onWorkerMessage(e) {
       bitmap.close(); // Libera immediatamente la memoria GPU.
       redrawAnnotations();
       setStatus(`Pagina ${state.currentPage} / ${state.pageCount}`);
+      state.isRendering = false;
       break;
     }
 
@@ -122,6 +136,7 @@ function onWorkerMessage(e) {
 
     case 'RENDER_ERROR':
       setStatus(`Errore rendering pagina ${e.data.pageIndex + 1}: ${e.data.message}`, true);
+      state.isRendering = false;
       break;
 
     default:
@@ -138,37 +153,49 @@ function onWorkerMessage(e) {
  * @param {File} file
  */
 async function loadPdfFile(file) {
-  setStatus(`Caricamento "${file.name}"…`);
+  if (!file) return;
+  try {
+    setStatus(`Caricamento "${file.name}"…`);
 
-  // Azzera lo stato navigazione.
-  state.currentPage = 1;
-  state.pageCount   = 0;
-  state.docHash     = await computeFileHash(file);
+    // Azzera lo stato navigazione.
+    state.currentPage = 1;
+    state.pageCount   = 0;
+    state.docHash     = await computeFileHash(file);
+    updateNavUI();
 
-  // Trasferisce il buffer al Worker: operazione zero-copy.
-  const buffer = await file.arrayBuffer();
-  state.pdfWorker.postMessage({ type: 'LOAD', buffer }, [buffer]);
+    // Trasferisce il buffer al Worker: operazione zero-copy.
+    const buffer = await file.arrayBuffer();
+    state.pdfWorker.postMessage({ type: 'LOAD', buffer }, [buffer]);
 
-  // Inizializza (o resetta) il motore WASM per la pagina 1.
-  if (state.engine) {
-    state.engine.set_page(1);
+    // Inizializza (o resetta) il motore WASM per la pagina 1.
+    if (state.engine) {
+      state.engine.set_page(1);
+    }
+
+    // Prova a ripristinare le annotazioni salvate per la pagina 1.
+    await restoreAnnotations(1);
+  } catch (err) {
+    setStatus(`Errore irreversibile caricamento file: ${err.message}`, true);
   }
-
-  // Prova a ripristinare le annotazioni salvate per la pagina 1.
-  await restoreAnnotations(1);
 }
 
 /**
  * Ordina al Worker di renderizzare la pagina corrente alla scala corrente.
  */
 function renderCurrentPage() {
-  if (!state.pdfWorker || state.pageCount === 0) return;
+  if (!state.pdfWorker || state.pageCount === 0 || state.isRendering) return;
+  state.isRendering = true;
   setStatus(`Rendering pagina ${state.currentPage}…`);
   state.pdfWorker.postMessage({
     type:      'RENDER',
     pageIndex: state.currentPage - 1,
-    scale:     state.scale,
+    scale:     currentScale(),
   });
+}
+
+function updateNavUI() {
+  pageInfoEl.textContent = `${state.pageCount > 0 ? state.currentPage : 0} / ${state.pageCount}`;
+  zoomInfoEl.textContent = `${Math.round(currentScale() * 100)}%`;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,17 +212,12 @@ function redrawAnnotations() {
   if (!state.engine || state.engine.annotation_count() === 0) return;
 
   // Deserializza il layer Rust in JS per accedere ai dati geometrici.
-  // Strategia: leggi i bytes da WASM → parse → disegna.
-  // Alternativa più efficiente: aggiungere metodi `get_rects_json` lato Rust.
-  // Per ora usiamo la via più semplice e corretta.
   try {
     const bytes = state.engine.serialize_annotations();
-    // Il rendering vero delle annotazioni richiederebbe un parser bincode in JS
-    // oppure metodi aggiuntivi in wasm.rs (es. `get_annotations_json`).
-    // Placeholder visivo per prova: evidenzia che il layer non è vuoto.
+    // Placeholder visivo finché non abbiamo parse bincode in JS
     glassCtx.save();
     glassCtx.font = '12px monospace';
-    glassCtx.fillStyle = 'rgba(0,0,0,0.4)';
+    glassCtx.fillStyle = 'rgba(137, 87, 229, 0.8)'; // GitHub purple
     glassCtx.fillText(`Layer: ${state.engine.annotation_count()} annotaz. (${bytes.length}B)`, 8, 16);
     glassCtx.restore();
   } catch (err) {
@@ -208,13 +230,14 @@ function redrawAnnotations() {
 // ---------------------------------------------------------------------------
 
 /**
- * Converte le coordinate del pointer (in pixel CSS) in punti PDF.
+ * Converte le coordinate del pointer (in pixel CSS) in punti PDF alla scala 1.0,
+ * così il WASM engine lavora su coordinate normalizzate indipendenti dallo zoom.
+ * In questa implementazione base il WASM engine riceve le coordinate scalate (le stesse del canvas).
  * @param {PointerEvent} e
  * @returns {{ x: number, y: number }}
  */
 function toPdfCoords(e) {
   const rect = glassPane.getBoundingClientRect();
-  // Il canvas può avere dimensioni fisiche (px) diverse da quelle CSS.
   const scaleX = glassPane.width  / rect.width;
   const scaleY = glassPane.height / rect.height;
   return {
@@ -259,23 +282,17 @@ glassPane.addEventListener('pointermove', (e) => {
     // Anteprima in tempo reale del tratto.
     const pts = state.engine.freehand_point_count();
     if (pts >= 2) {
-      // Ridisegna l'ultimo segmento sul glass pane (ottimizzato: non full-clear).
-      // Qui è una preview semplificata; una versione avanzata userebbe Path2D.
       glassCtx.lineWidth   = state.inkThickness;
       glassCtx.strokeStyle = state.inkColor;
       glassCtx.lineCap     = 'round';
       glassCtx.lineJoin    = 'round';
       glassCtx.beginPath();
-      // Non abbiamo accesso ai punti da JS in questa implementazione;
-      // il disegno completo avviene in commit. Per una UX migliore,
-      // aggiungere `get_last_two_points(): Float32Array` a wasm.rs.
       glassCtx.stroke();
     }
   }
 
   if (state.tool === Tool.HIGHLIGHT) {
     // Preview del rettangolo di selezione durante il drag.
-    // Richiede il punto di inizio: salvato in `state.highlightStart`.
     if (state.highlightStart) {
       const { x: sx, y: sy } = state.highlightStart;
       glassCtx.clearRect(0, 0, glassPane.width, glassPane.height);
@@ -299,7 +316,7 @@ glassPane.addEventListener('pointerup', async (e) => {
         parseInt(state.inkColor.slice(1, 3), 16),
         parseInt(state.inkColor.slice(3, 5), 16),
         parseInt(state.inkColor.slice(5, 7), 16),
-        200,                  // alpha
+        255,                  // alpha solid per inchiostro
         state.inkThickness,
       );
       if (committed) {
@@ -372,7 +389,9 @@ function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore(STORE_NAME);
+      if (!req.result.objectStoreNames.contains(STORE_NAME)) {
+          req.result.createObjectStore(STORE_NAME);
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror   = () => reject(req.error);
@@ -426,15 +445,23 @@ async function restoreAnnotations(page) {
       state.engine.set_page(page);
       state.engine.force_deserialize_annotations(bytes);
       console.log(`[main] Annotazioni ripristinate per pagina ${page} (${bytes.length} bytes)`);
+    } else {
+        // Pulisci lo stato wasm per questa pagina se non ci sono annotazioni salvate
+        if (state.engine.annotation_count() > 0) {
+            state.engine.clear_annotations();
+        }
     }
   } catch (err) {
     // Non è un errore bloccante: il documento potrebbe essere nuovo.
     console.warn('[main] restoreAnnotations:', err);
+    if (state.engine && state.engine.annotation_count() > 0) {
+         state.engine.clear_annotations();
+    }
   }
 }
 
 // ---------------------------------------------------------------------------
-// 8. Navigazione pagine
+// 8. Navigazione e Zoom
 // ---------------------------------------------------------------------------
 
 /**
@@ -442,12 +469,13 @@ async function restoreAnnotations(page) {
  * @param {number} newPage
  */
 async function goToPage(newPage) {
-  if (newPage < 1 || newPage > state.pageCount) return;
+  if (newPage < 1 || newPage > state.pageCount || newPage === state.currentPage) return;
 
   // Salva le annotazioni della pagina che si sta lasciando.
   await saveAnnotations();
 
   state.currentPage = newPage;
+  updateNavUI();
 
   // Inizializza il motore per la nuova pagina.
   if (state.engine) {
@@ -457,6 +485,20 @@ async function goToPage(newPage) {
 
   renderCurrentPage();
 }
+
+/**
+ * Cambia il livello di zoom
+ * @param {number} step - +1 (zoom in) o -1 (zoom out)
+ */
+function changeZoom(step) {
+    const newIndex = state.zoomIndex + step;
+    if (newIndex >= 0 && newIndex < ZOOM_STEPS.length) {
+        state.zoomIndex = newIndex;
+        updateNavUI();
+        renderCurrentPage();
+    }
+}
+
 
 // ---------------------------------------------------------------------------
 // 9. Selezione strumento
@@ -514,7 +556,7 @@ async function computeFileHash(file) {
  */
 function setStatus(msg, isError = false) {
   statusEl.textContent = msg;
-  statusEl.style.color = isError ? '#e63946' : '';
+  statusEl.style.color = isError ? '#e63946' : '#8b949e';
 }
 
 // ---------------------------------------------------------------------------
@@ -526,24 +568,50 @@ if (fileInput) {
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) loadPdfFile(file);
+    e.target.value = ''; // Reset
   });
 }
 
-// Bottone "Apri" (se presente nella toolbar HTML)
 const openBtn = document.getElementById('open-btn');
 if (openBtn) {
   openBtn.addEventListener('click', () => fileInput?.click());
 }
 
 // Drag-and-drop sul body
-document.body.addEventListener('dragover', (e) => e.preventDefault());
-document.body.addEventListener('drop', (e) => {
-  e.preventDefault();
-  const file = e.dataTransfer?.files[0];
-  if (file?.type === 'application/pdf') loadPdfFile(file);
+let dragCounter = 0;
+
+document.body.addEventListener('dragenter', (e) => {
+    e.preventDefault();
+    dragCounter++;
+    dndOverlay.classList.add('active');
 });
 
-// Bottoni strumento (data-tool="highlight" | "ink" | "note" | "none")
+document.body.addEventListener('dragover', (e) => {
+    e.preventDefault();
+});
+
+document.body.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter === 0) {
+        dndOverlay.classList.remove('active');
+    }
+});
+
+document.body.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragCounter = 0;
+    dndOverlay.classList.remove('active');
+
+    const file = e.dataTransfer?.files[0];
+    if (file?.type === 'application/pdf') {
+        loadPdfFile(file);
+    } else {
+        setStatus("Errore: Il file rilasciato non è un PDF.", true);
+    }
+});
+
+// Bottoni strumento
 document.querySelectorAll('[data-tool]').forEach((btn) => {
   btn.addEventListener('click', () => selectTool(btn.dataset.tool));
 });
@@ -554,18 +622,32 @@ const nextBtn = document.getElementById('next-btn');
 if (prevBtn) prevBtn.addEventListener('click', () => goToPage(state.currentPage - 1));
 if (nextBtn) nextBtn.addEventListener('click', () => goToPage(state.currentPage + 1));
 
-// Bottone highlight legacy (compatibilità con HTML minimo attuale)
-const highlightBtn = document.getElementById('highlight-btn');
-if (highlightBtn) {
-  highlightBtn.addEventListener('click', () => {
-    if (!state.engine) return;
-    // Test rapido: aggiunge un'evidenziazione fissa per verifica WASM.
-    state.engine.add_highlight(80, 80, 200, 40);
-    setStatus(`Evidenziazione di test aggiunta (WASM OK)`);
-    redrawAnnotations();
-    saveAnnotations();
-  });
+// Zoom
+const zoomInBtn = document.getElementById('zoom-in-btn');
+const zoomOutBtn = document.getElementById('zoom-out-btn');
+if (zoomInBtn) zoomInBtn.addEventListener('click', () => changeZoom(1));
+if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => changeZoom(-1));
+
+// Reset Annotations
+const clearBtn = document.getElementById('clear-btn');
+if (clearBtn) {
+    clearBtn.addEventListener('click', async () => {
+        if (!state.engine) return;
+        if (confirm("Vuoi davvero cancellare tutte le annotazioni in questa pagina?")) {
+            state.engine.clear_annotations();
+            redrawAnnotations();
+            await saveAnnotations();
+        }
+    });
 }
+
+// Salva le annotazioni quando si chiude/ricarica la pagina
+window.addEventListener('beforeunload', () => {
+    // Nota: IndexedDB potrebbe non completare transazioni async in beforeunload,
+    // ma la salviamo comunque prima del cambio pagina per sicurezza.
+    saveAnnotations();
+});
+
 
 // ---------------------------------------------------------------------------
 // 12. Bootstrap
@@ -599,7 +681,7 @@ async function boot() {
     return;
   }
 
-  setStatus('Pronto — trascina un PDF qui o clicca "Apri"');
+  setStatus('Pronto — trascina un PDF o clicca "Apri"');
 }
 
 boot();
