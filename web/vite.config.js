@@ -35,9 +35,7 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-    // Do NOT pre-bundle pdfjs-dist — it ships its own worker which must remain
-    // a separate chunk. Pre-bundling breaks the worker URL resolution.
-    exclude: ['pdfjs-dist'],
+    include: ['pdfjs-dist'],
   },
 
   server: {

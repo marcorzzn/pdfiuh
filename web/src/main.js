@@ -10,19 +10,11 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import init, { PdfWebEngine } from '../pkg/pdfiuh_core.js';
 import { openDb, savePageAnnotations, loadPageAnnotations } from './db.js';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).href;
-
-// ---------------------------------------------------------------------------
-// 0. Configurazione PDF.js
-// ---------------------------------------------------------------------------
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.mjs', import.meta.url).href;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ---------------------------------------------------------------------------
 // 1. Costanti e stato globale
