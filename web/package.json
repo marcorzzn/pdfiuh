@@ -1,24 +1,18 @@
 {
   "name": "pdfiuh-web",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "pdfiuh — Lettore PDF Web, Local-First PWA",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "vite": "^8.0.3"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "mupdf": "^1.27.0",
-    "pdfjs-dist": "^5.6.205",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
-  }
+    "pdfjs-dist": "^5.6.205"
+  },
+  "devDependencies": {
+    "vite": "^8.0.3"
+  },
+  "license": "AGPL-3.0-only"
 }

@@ -1,122 +1,129 @@
 /**
- * pdfiuh — PDF.js Rendering Web Worker
+ * pdfiuh Web — Web Worker PDF.js
  *
- * Runs entirely off the main thread. Receives messages from the orchestrator
- * (main.js) and emits back rendered page bitmaps.
+ * Esegue interamente off-main-thread. Non ha accesso al DOM.
  *
- * Protocol
- * ────────
- * IN  { type: 'LOAD',   buffer: ArrayBuffer }
- *       → Loads a PDF. buffer is transferred (zero-copy).
- * OUT { type: 'LOADED', pageCount: number }
- *       | { type: 'LOAD_ERROR', message: string }
+ * Protocollo messaggi (IN → OUT):
  *
- * IN  { type: 'RENDER', pageIndex: number, scale: number }
- *       → Renders a page at the given scale.
- * OUT { type: 'RENDERED', pageIndex: number, bitmap: ImageBitmap, width: number, height: number }
- *       | { type: 'RENDER_ERROR', pageIndex: number, message: string }
+ *   IN  { type: 'LOAD', buffer: ArrayBuffer }
+ *   OUT { type: 'LOADED', pageCount: number }
+ *     | { type: 'LOAD_ERROR', message: string }
  *
- * Memory discipline: each ImageBitmap is transferred (not cloned) back to the
- * main thread — zero copy, zero duplicate heap usage.
+ *   IN  { type: 'RENDER', pageIndex: number, scale: number }
+ *   OUT { type: 'RENDERED', pageIndex, bitmap, width, height }
+ *     | { type: 'RENDER_ERROR', pageIndex, message: string }
+ *
+ * Tutti i trasferimenti di dati pesanti (ArrayBuffer, ImageBitmap) avvengono
+ * tramite `transfer` — zero-copy, nessuna duplicazione heap.
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Point PDF.js at its own worker shim.
-// In a Web Worker context we ARE the worker, so we use the fake worker path
-// that instructs PDF.js to run synchronously within this worker.
+// In un Web Worker siamo già il worker: non serve un worker annidato.
+// Passiamo una stringa vuota per disabilitare il worker interno di PDF.js
+// e farlo girare in modalità sincrona dentro questo worker.
 pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 /** @type {import('pdfjs-dist').PDFDocumentProxy | null} */
 let pdfDocument = null;
 
-// ─── Message Router ─────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Router messaggi
+// ---------------------------------------------------------------------------
 
 self.addEventListener('message', async (e) => {
   const { type } = e.data;
-
-  if (type === 'LOAD')   { await handleLoad(e.data);   return; }
-  if (type === 'RENDER') { await handleRender(e.data); return; }
-
-  console.warn('[pdf-worker] Unknown message type:', type);
+  if      (type === 'LOAD')   await handleLoad(e.data);
+  else if (type === 'RENDER') await handleRender(e.data);
+  else    console.warn('[pdf-worker] Tipo messaggio sconosciuto:', type);
 });
 
-// ─── LOAD ────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// LOAD
+// ---------------------------------------------------------------------------
 
 /**
  * @param {{ buffer: ArrayBuffer }} data
  */
 async function handleLoad({ buffer }) {
+  // Chiude eventuale documento precedente per liberare risorse.
+  if (pdfDocument) {
+    await pdfDocument.destroy().catch(() => {});
+    pdfDocument = null;
+  }
+
   try {
-    // Transfer the buffer to a typed array view — no copy needed.
     const typedArray = new Uint8Array(buffer);
 
     const loadingTask = pdfjsLib.getDocument({
       data: typedArray,
-      // Disable range requests — we already have the full buffer in memory.
-      disableRange: true,
+      // Abbiamo già il buffer completo in memoria: inutile range request.
+      disableRange:  true,
       disableStream: true,
-      // Avoid worker-inside-worker issues.
+      // Riduci overhead font per hardware lento.
       useSystemFonts: true,
-      // Improve performance on lower-end hardware.
-      disableFontFace: false,
     });
 
     pdfDocument = await loadingTask.promise;
-
     self.postMessage({ type: 'LOADED', pageCount: pdfDocument.numPages });
   } catch (err) {
-    self.postMessage({ type: 'LOAD_ERROR', message: err.message ?? String(err) });
+    self.postMessage({ type: 'LOAD_ERROR', message: String(err?.message ?? err) });
   }
 }
 
-// ─── RENDER ──────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// RENDER
+// ---------------------------------------------------------------------------
 
 /**
  * @param {{ pageIndex: number, scale: number }} data
- *   pageIndex is 0-based; PDF.js uses 1-based page numbers internally.
+ *   `pageIndex` è 0-based; PDF.js usa internamente 1-based.
  */
 async function handleRender({ pageIndex, scale }) {
   if (!pdfDocument) {
     self.postMessage({
-      type: 'RENDER_ERROR',
+      type:      'RENDER_ERROR',
       pageIndex,
-      message: 'No document loaded',
+      message:   'Nessun documento caricato',
     });
     return;
   }
 
+  let page = null;
   try {
-    // PDF.js pages are 1-indexed.
-    const page = await pdfDocument.getPage(pageIndex + 1);
-    const viewport = page.getViewport({ scale });
+    // PDF.js: le pagine sono 1-indexed.
+    page = await pdfDocument.getPage(pageIndex + 1);
 
-    // Allocate an OffscreenCanvas for rendering completely off the main thread.
-    const offscreen = new OffscreenCanvas(
-      Math.floor(viewport.width),
-      Math.floor(viewport.height),
-    );
+    const viewport = page.getViewport({ scale });
+    const width    = Math.floor(viewport.width);
+    const height   = Math.floor(viewport.height);
+
+    // OffscreenCanvas: rendering completamente off-thread, zero accesso DOM.
+    const offscreen = new OffscreenCanvas(width, height);
     const ctx = offscreen.getContext('2d');
-    if (!ctx) throw new Error('Failed to get 2D context from OffscreenCanvas');
+    if (!ctx) throw new Error('getContext("2d") fallito su OffscreenCanvas');
+
+    // Sfondo bianco esplicito (PDF.js non lo garantisce sempre).
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
 
     await page.render({ canvasContext: ctx, viewport }).promise;
 
-    // Convert to ImageBitmap for zero-copy transfer to main thread.
+    // transferToImageBitmap: ownership passa al main thread (zero-copy).
     const bitmap = offscreen.transferToImageBitmap();
 
-    // Transfer the bitmap — main thread takes ownership, worker releases it.
     self.postMessage(
-      { type: 'RENDERED', pageIndex, bitmap, width: offscreen.width, height: offscreen.height },
-      [bitmap],
+      { type: 'RENDERED', pageIndex, bitmap, width, height },
+      [bitmap], // transfer list
     );
-
-    // Release the PDF.js page object to free its internal memory immediately.
-    page.cleanup();
   } catch (err) {
     self.postMessage({
-      type: 'RENDER_ERROR',
+      type:    'RENDER_ERROR',
       pageIndex,
-      message: err.message ?? String(err),
+      message: String(err?.message ?? err),
     });
+  } finally {
+    // Libera la memoria interna di PDF.js per la pagina renderizzata.
+    page?.cleanup();
   }
 }
