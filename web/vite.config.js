@@ -5,6 +5,7 @@ import path from 'path';
 export default defineConfig({
   // Base path for GitHub Pages deployment (repo name).
   // Must match the GitHub repository name exactly.
+  // Verified for production deployment: https://marcorzzn.github.io/pdfiuh/
   base: '/pdfiuh/',
 
   // Treat .wasm imports as assets, served with the correct MIME type.
