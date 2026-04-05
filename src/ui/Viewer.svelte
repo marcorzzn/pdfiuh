@@ -1,12 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { totalPages, zoom, rotation, isLoading, isError, errorMsg } from '../stores/viewer.store';
+  import { currentPage, totalPages, zoom, rotation, isLoading, isError, errorMsg } from '../stores/viewer.store';
   import { currentPdfBuffer, setPdfBuffer } from '../stores/pdf.store';
   import { detectProfile } from '../core/device-profile';
   import PdfRendererWorker from '../workers/pdf-renderer.worker?worker';
   import type { DeviceProfile } from '../core/device-profile';
 
-  export let docId: string;
+  const props = $props<{ docId: string }>();
 
   let renderWorker: Worker;
   let canvas: HTMLCanvasElement;

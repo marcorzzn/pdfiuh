@@ -30,14 +30,14 @@
   <DropZone on:load={(e: CustomEvent) => handlePdfLoad(e.detail.docId, e.detail.buffer, e.detail.fileName)} />
 {:else}
   <Toolbar
-    docId={currentDocId}
+    docId={currentDocId || ''}
     on:sidebar={toggleSidebar}
   />
   <div class="main-content" class:sidenav-open={sidebarOpen}>
-    <Sidebar {docId} open={sidebarOpen} on:close={toggleSidebar} />
+    <Sidebar docId={currentDocId || ''} open={sidebarOpen} on:close={toggleSidebar} />
     <div class="viewer-area">
-      <Viewer docId={currentDocId} />
-      <AnnotationLayer docId={currentDocId} />
+      <Viewer docId={currentDocId || ''} />
+      <AnnotationLayer docId={currentDocId || ''} />
     </div>
   </div>
 {/if}
@@ -51,14 +51,5 @@
   }
   .sidenav-open .viewer-area {
     margin-left: 0;
-  }
-</style>
-
-<style>
-  .main-content {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    position: relative;
   }
 </style>

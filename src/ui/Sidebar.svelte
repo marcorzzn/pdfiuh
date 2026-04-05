@@ -3,10 +3,9 @@
   import { annotations, removeAnnotation } from '../stores/annotations.store';
   import { currentPage } from '../stores/viewer.store';
 
-  export let docId: string;
-  export let open: boolean = false;
-
+  const props = $props<{ docId: string; open: boolean }>();
   const dispatch = createEventDispatcher<{ close: void }>();
+
   let activeTab = $state<'annotations' | 'outline'>('annotations');
 
   const typeLabels: Record<string, string> = {
@@ -22,13 +21,13 @@
   }
 </script>
 
-<div class="sidebar" class:open>
+<div class="sidebar" class:open={props.open}>
   <div class="sidebar-header">
     <div class="tabs">
       <button class="tab" class:active={activeTab === 'annotations'} on:click={() => activeTab = 'annotations'}>📝</button>
       <button class="tab" class:active={activeTab === 'outline'} on:click={() => activeTab = 'outline'}>📑</button>
     </div>
-    <button class="btn close-btn" on:click={() => dispatch('close')}>✕</button>
+    <button class="btn close-btn" on:click={() => dispatch('close')}>&#10005;</button>
   </div>
 
   <div class="sidebar-content">
@@ -41,8 +40,8 @@
             <li class="annotation-item">
               <span class="ann-type">Pag {ann.pageNumber} — {typeLabels[ann.type]}</span>
               <span class="ann-text">{ann.data.text || ann.type}</span>
-              <button class="btn icon" on:click={() => goToPage(ann.pageNumber)} title="Vai">→</button>
-              <button class="btn icon" on:click={() => removeAnnotation(ann.id!)} title="Elimina">✕</button>
+              <button class="btn icon" on:click={() => goToPage(ann.pageNumber)} title="Vai">&#8594;</button>
+              <button class="btn icon" on:click={() => removeAnnotation(ann.id!)} title="Elimina">&times;</button>
             </li>
           {/each}
         </ul>

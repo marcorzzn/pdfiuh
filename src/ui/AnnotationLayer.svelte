@@ -3,7 +3,7 @@
   import type { Annotation } from '../core/annotation-store';
   import { currentPage } from '../stores/viewer.store';
 
-  export let docId: string;
+  const props = $props<{ docId: string }>();
 
   let svgEl: SVGSVGElement;
   let isDrawing = $state(false);
@@ -69,7 +69,7 @@
       if (tool === 'highlight' || tool === 'underline' || tool === 'strikeout') {
         const colors: Record<string, string> = { highlight: '#e5c07b', underline: '#4f8ef7', strikeout: '#e06c75' };
         addAnnotation({
-          docId,
+          docId: props.docId,
           pageNumber: $currentPage,
           type: tool,
           data: { rect: selectRect, color: colors[tool] }
@@ -82,7 +82,7 @@
 
     if (isDrawing && currentPath.length > 1) {
       addAnnotation({
-        docId,
+        docId: props.docId,
         pageNumber: $currentPage,
         type: 'ink',
         data: { paths: [{ points: currentPath }] }
