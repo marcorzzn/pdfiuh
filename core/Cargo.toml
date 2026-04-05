@@ -28,3 +28,6 @@ criterion = "0.5"
 [[bench]]
 name = "memory_profile"
 harness = false
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory"]
