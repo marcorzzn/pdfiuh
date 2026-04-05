@@ -67,7 +67,7 @@ export async function embedAnnotations(pdfBytes: Uint8Array, annotations: Annota
 
 export async function downloadAnnotatedPDF(pdfBytes: Uint8Array, annotations: Annotation[], filename: string) {
   const result = await embedAnnotations(pdfBytes, annotations);
-  const blob = new Blob([result], { type: 'application/pdf' });
+  const blob = new Blob([result.buffer] as BlobPart[], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

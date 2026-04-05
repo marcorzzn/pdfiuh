@@ -12,7 +12,7 @@
   let notePoint = $state<{ x: number; y: number } | null>(null);
   let highlightStart = $state<{ x: number; y: number } | null>(null);
   let selectStart = $state<{ x: number; y: number } | null>(null);
-  let selectRect = $state<{ x: number; y: number; w: number; h: number } | null>(null);
+  let selectRect = $state<{ x: number; y: number; width: number; height: number } | null>(null);
 
   function getCoords(e: MouseEvent): { x: number; y: number } | null {
     if (!svgEl) return null;
@@ -49,9 +49,9 @@
       if (coords) {
         const x = Math.min(selectStart.x, coords.x);
         const y = Math.min(selectStart.y, coords.y);
-        const w = Math.abs(coords.x - selectStart.x);
-        const h = Math.abs(coords.y - selectStart.y);
-        selectRect = { x, y, w, h };
+        const width = Math.abs(coords.x - selectStart.x);
+        const height = Math.abs(coords.y - selectStart.y);
+        selectRect = { x, y, width, height };
       }
       return;
     }
@@ -64,7 +64,7 @@
   }
 
   function onPointerUp(e: MouseEvent) {
-    if (selectStart && selectRect && selectRect.w > 5 && selectRect.h > 5) {
+    if (selectStart && selectRect && selectRect.width > 5 && selectRect.height > 5) {
       const tool = $activeTool;
       if (tool === 'highlight' || tool === 'underline' || tool === 'strikeout') {
         const colors: Record<string, string> = { highlight: '#e5c07b', underline: '#4f8ef7', strikeout: '#e06c75' };
@@ -97,7 +97,7 @@
   function saveNote() {
     if (!notePoint) return;
     addAnnotation({
-      docId,
+      docId: props.docId,
       pageNumber: $currentPage,
       type: 'note',
       data: { rect: { ...notePoint, width: 0, height: 0 }, text: noteText }
@@ -177,7 +177,7 @@
 
   <!-- Active selection preview -->
   {#if selectRect && $activeTool !== 'select'}
-    <rect x={selectRect.x} y={selectRect.y} width={selectRect.w} height={selectRect.h} fill="rgba(79,142,247,0.15)" stroke="#4f8ef7" stroke-dasharray="4" />
+    <rect x={selectRect.x} y={selectRect.y} width={selectRect.width} height={selectRect.height} fill="rgba(79,142,247,0.15)" stroke="#4f8ef7" stroke-dasharray="4" />
   {/if}
 
   <!-- Note input -->

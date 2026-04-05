@@ -1,10 +1,10 @@
-import { getDocument } from 'pdfjs-dist';
+import * as pdfjsLib from 'pdfjs-dist';
 
-// pdfjs-dist runs inside this Vite-bundled worker.
-// `workerPort: self` tells it to use the current worker context instead of spawning a nested worker.
+// pdfjs-dist runs inside this Vite-bundled worker context.
+// We cast getDocument options to bypass the workerPort type limitation.
 
-let pdfDoc: ReturnType<typeof getDocument>['promise'] | null = null;
-const pageCache = new Map<number, { page: any; viewport: any }>();
+let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']> | null = null;
+const pageCache = new Map<number, { page: unknown }>();
 let maxPool = 3;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -13,10 +13,13 @@ self.onmessage = async (e: MessageEvent) => {
   if (type === 'LOAD') {
     try {
       const data = new Uint8Array(payload.buffer);
-      pdfDoc = getDocument({ data, workerPort: self as unknown as Worker });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const doc = await pdfDoc.promise;
-      self.postMessage({ type: 'LOADED', numPages: doc.numPages, fingerprint: doc.fingerprint });
+      const docInit: any = { data, workerPort: self as unknown as Worker };
+      const loadingTask = pdfjsLib.getDocument(docInit);
+      pdfDoc = await loadingTask.promise;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fp = (pdfDoc as any).fingerprints?.[0] ?? '';
+      self.postMessage({ type: 'LOADED', numPages: pdfDoc.numPages, fingerprint: fp });
     } catch (error) {
       self.postMessage({ type: 'ERROR', message: (error as Error).message });
     }
@@ -32,8 +35,7 @@ self.onmessage = async (e: MessageEvent) => {
     }
 
     try {
-      const doc = await pdfDoc as any;
-      const page = await doc.getPage(pageNumber);
+      const page = await pdfDoc.getPage(pageNumber);
       const viewport = page.getViewport({ scale });
 
       const canvas = new OffscreenCanvas(viewport.width, viewport.height);
@@ -44,7 +46,8 @@ self.onmessage = async (e: MessageEvent) => {
         return;
       }
 
-      const renderTask = page.render({ canvasContext: ctx, viewport });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const renderTask = page.render({ canvasContext: ctx as any, viewport });
       await renderTask.promise;
 
       page.cleanup();
@@ -54,7 +57,7 @@ self.onmessage = async (e: MessageEvent) => {
         const firstKey = pageCache.keys().next().value;
         if (firstKey !== undefined) pageCache.delete(firstKey);
       }
-      pageCache.set(pageNumber, { page, viewport });
+      pageCache.set(pageNumber, { page });
 
       const bitmap = await createImageBitmap(canvas);
       self.postMessage(
@@ -74,7 +77,7 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === 'CLEANUP') {
     for (const [, cached] of pageCache) {
-      cached.page?.cleanup();
+      (cached.page as { cleanup: () => void })?.cleanup();
     }
     pageCache.clear();
     pdfDoc = null;

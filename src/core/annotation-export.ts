@@ -62,7 +62,7 @@ export function parseXFDF(xml: string): {
     const w = parseFloat(el.getAttribute('width') || '0');
     const h = parseFloat(el.getAttribute('height') || '0');
     if (w && h) {
-      entry.data.rect = { x, y, width: w, height: h };
+      entry.data = { ...entry.data, rect: { x, y, width: w, height: h } } as typeof entry.data;
     }
 
     annotations.push(entry);
