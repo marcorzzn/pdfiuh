@@ -9,12 +9,8 @@
  * Tutto il processing è off-main-thread o locale; nessun dato lascia il browser.
  */
 
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import init, { PdfWebEngine } from '../pkg/pdfiuh_core.js';
 import { openDb, savePageAnnotations, loadPageAnnotations } from './db.js';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ---------------------------------------------------------------------------
 // 1. Costanti e stato globale

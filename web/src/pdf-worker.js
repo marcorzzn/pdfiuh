@@ -18,11 +18,9 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// In un Web Worker siamo già il worker: non serve un worker annidato.
-// Passiamo una stringa vuota per disabilitare il worker interno di PDF.js
-// e farlo girare in modalità sincrona dentro questo worker.
-pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 /** @type {import('pdfjs-dist').PDFDocumentProxy | null} */
 let pdfDocument = null;
