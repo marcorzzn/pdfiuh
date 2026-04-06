@@ -116,7 +116,6 @@
   }
 
   // Coordinate SVG: moltiplica per zoom per tornare allo spazio schermo
-  $derived.by(() => $zoom); // accede a zoom per tracking reattivo
 </script>
 
 <!-- FIX BUG #5a: width e height espliciti uguali al canvas PDF renderizzato.

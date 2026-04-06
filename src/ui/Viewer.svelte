@@ -130,7 +130,7 @@
       <strong>Errore rendering:</strong> {$errorMsg}
     </div>
   {/if}
-  <canvas bind:this={canvas} class="pdf-canvas" />
+  <canvas bind:this={canvas} class="pdf-canvas"></canvas>
 </div>
 
 <style>
