@@ -27,7 +27,7 @@ class PDFiuhApp {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('./public/sw.js');
+        await navigator.serviceWorker.register('./sw.js');
         console.log('[Main] Service Worker registered.');
       } catch (err) {
         console.warn('[Main] SW registration failed:', err);
