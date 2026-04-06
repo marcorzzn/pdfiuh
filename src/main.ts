@@ -9,6 +9,7 @@ class PDFiuhApp {
   private bootScreen: HTMLElement;
   private appContainer: HTMLElement;
   private viewerComponent: any;
+  private sidebarComponent: any;
   private currentDocId = 'demo-doc-123';
 
   constructor() {
@@ -55,7 +56,7 @@ class PDFiuhApp {
 
       case 'PDF_LOADED':
         this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
-        this.setupMainUI(payload.totalPages);
+        this.setupMainUI(payload.totalPages, payload.outline);
         break;
 
       case 'ERROR':
@@ -72,16 +73,19 @@ class PDFiuhApp {
     }, [mockBuffer]);
   }
 
-  private setupMainUI(totalPages: number) {
+  private setupMainUI(totalPages: number, outline: any[]) {
     this.appContainer.innerHTML = '';
     this.appContainer.className = 'pdfiuh-app';
     this.appContainer.style.display = 'grid';
 
     this.appContainer.innerHTML = `
       <pdfiuh-toolbar></pdfiuh-toolbar>
-      <pdfiuh-sidebar></pdfiuh-sidebar>
+      <pdfiuh-sidebar id="main-sidebar"></pdfiuh-sidebar>
       <pdfiuh-viewer id="main-viewer"></pdfiuh-viewer>
     `;
+
+    this.sidebarComponent = document.getElementById('main-sidebar');
+    this.sidebarComponent.updateToC(outline);
 
     this.viewerComponent = document.getElementById('main-viewer');
     this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
@@ -103,7 +107,7 @@ class PDFiuhApp {
   private handleCriticalError(err: any) {
     console.error('[CRITICAL ERROR]', err);
     this.bootStatus.style.color = 'var(--error-color)';
-    this.bootStatus.innerText = `Errore Critico: ${err}`;
+    this.bootStatus.innerText = \`Errore Critico: \${err}\`;
   }
 }
 

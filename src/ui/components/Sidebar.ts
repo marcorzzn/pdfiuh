@@ -1,3 +1,5 @@
+import { bus } from '../../core/event-bus';
+
 class PDFiuhSidebar extends HTMLElement {
   constructor() {
     super();
@@ -60,7 +62,7 @@ class PDFiuhSidebar extends HTMLElement {
     const list = this.shadowRoot!.getElementById('toc-list');
     if (!list) return;
 
-    if (bookmarks.length === 0) return;
+    if (!bookmarks || bookmarks.length === 0) return;
 
     list.innerHTML = bookmarks.map(b => `
       <li class="toc-item" data-page="${b.page}">${b.title}</li>
@@ -69,8 +71,7 @@ class PDFiuhSidebar extends HTMLElement {
     list.querySelectorAll('.toc-item').forEach(item => {
       item.addEventListener('click', () => {
         const page = parseInt((item as HTMLElement).dataset.page!);
-        // Pubblica l'evento per saltare alla pagina
-        // bus.publish('go-to-page', page);
+        bus.publish('go-to-page', page);
       });
     });
   }

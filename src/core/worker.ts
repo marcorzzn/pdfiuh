@@ -15,21 +15,37 @@ class PDFiumEngine {
       this.isInitialized = true;
       console.log('[Worker] PDFium WASM initialized successfully.');
     } catch (e) {
-      throw new Error(`WASM Init Failed: ${e}`);
+      throw new Error(\`WASM Init Failed: \${e}\`);
     }
   }
 
   async loadDocument(buffer: ArrayBuffer) {
     if (!this.isInitialized) throw new Error('Engine not initialized');
-    console.log(`[Worker] Loading PDF document. Size: ${buffer.byteLength} bytes`);
+    console.log(\`[Worker] Loading PDF document. Size: \${buffer.byteLength} bytes\`);
     // In PDFium reale: this.doc = pdfium.loadDocument(buffer);
     await new Promise(resolve => setTimeout(resolve, 500));
     return { totalPages: 10 };
   }
 
+  async getOutline() {
+    if (!this.isInitialized) throw new Error('Engine not initialized');
+    console.log('[Worker] Extracting PDF outline...');
+
+    // In PDFium reale: loop through doc.getOutlineRoot()
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    return [
+      { title: 'Introduzione', page: 1 },
+      { title: 'Capitolo 1: Fondamentali', page: 2 },
+      { title: 'Capitolo 2: Architettura', page: 5 },
+      { title: 'Capitolo 3: Ottimizzazione', page: 8 },
+      { title: 'Conclusioni', page: 10 },
+    ];
+  }
+
   async renderPage(pageNumber: number, scale: number, width: number, height: number) {
     if (!this.isInitialized) throw new Error('Engine not initialized');
-    console.log(`[Worker] Rendering page ${pageNumber} at scale ${scale}...`);
+    console.log(\`[Worker] Rendering page \${pageNumber} at scale \${scale}...\`);
 
     // In PDFium reale:
     // 1. Create Page object
@@ -59,7 +75,8 @@ self.onmessage = async (e) => {
       case 'LOAD_PDF':
         const { buffer } = payload;
         const docInfo = await engine.loadDocument(buffer);
-        self.postMessage({ type: 'PDF_LOADED', payload: docInfo });
+        const outline = await engine.getOutline();
+        self.postMessage({ type: 'PDF_LOADED', payload: { ...docInfo, outline } });
         break;
 
       case 'RENDER_PAGE':
@@ -74,7 +91,7 @@ self.onmessage = async (e) => {
         break;
 
       default:
-        console.warn(`Unknown message type: ${type}`);
+        console.warn(\`Unknown message type: \${type}\`);
     }
   } catch (err) {
     self.postMessage({ type: 'ERROR', payload: err.message });
