@@ -1,6 +1,7 @@
 import './ui/components/Toolbar';
 import './ui/components/Sidebar';
 import './ui/components/Viewer';
+import WorkerConstructor from './core/worker?worker';
 import { bus } from './core/event-bus';
 
 class PDFiuhApp {
@@ -38,12 +39,12 @@ class PDFiuhApp {
   private initWorker() {
     this.updateStatus('Connessione al motore WASM...');
 
+import WorkerConstructor from './core/worker?worker';
+// ...
     try {
-      // Utilizziamo un percorso relativo semplice per massimizzare la compatibilità
-      this.worker = new Worker(
-        new URL('./core/worker.ts', import.meta.url),
-        { type: 'module' }
-      );
+      // Utilizziamo l'import ?worker di Vite per la massima compatibilità di bundling
+      this.worker = new WorkerConstructor();
+
 
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
       this.worker.onerror = (err) => this.handleCriticalError(`Errore Worker: ${err}`);
