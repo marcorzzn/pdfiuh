@@ -3,8 +3,7 @@
   import { currentPage, totalPages, zoom, rotation, isLoading, isError, errorMsg } from '../stores/viewer.store';
   import { currentPdfBuffer } from '../stores/pdf.store';
   import { detectProfile } from '../core/device-profile';
-  import PdfRendererWorker from '../workers/pdf-renderer.worker?worker';
-  import type { DeviceProfile } from '../core/device-profile';
+    import type { DeviceProfile } from '../core/device-profile';
   import type { Unsubscriber } from 'svelte/store';
 
   const props = $props<{ docId: string }>();
@@ -34,7 +33,17 @@
 
   onMount(async () => {
     profile = await detectProfile();
-    renderWorker = new PdfRendererWorker();
+    try {
+      renderWorker = new Worker(
+        new URL('../workers/pdf-renderer.worker.ts', import.meta.url),
+        { type: 'module' }
+      );
+    } catch (e) {
+      console.error('Worker init failed:', e);
+      isLoading.set(false);
+      isError.set(true);
+      errorMsg.set(`Errore Worker: ${e}`);
+    }
 
     renderWorker.postMessage({ type: 'SET_MAX_POOL', payload: { maxPool: profile.maxPagePool } });
 
