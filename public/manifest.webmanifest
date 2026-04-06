@@ -1,15 +1,20 @@
 {
-  "name": "pdfiuh",
+  "name": "pdfiuh - Professional PDF Reader",
   "short_name": "pdfiuh",
-  "description": "Lettore e annotatore PDF super-ottimizzato",
-  "start_url": "./",
-  "scope": "./",
+  "description": "The most efficient, private and fast PDF reader for any hardware.",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0d0f14",
-  "theme_color": "#0d0f14",
+  "theme_color": "#61afef",
   "icons": [
     {
-      "src": "./logo pdfiuh.png",
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

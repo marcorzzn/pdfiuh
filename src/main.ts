@@ -1,29 +1,112 @@
-import App from './App.svelte';
-import { mount } from 'svelte';
+import './ui/components/Toolbar';
+import './ui/components/Sidebar';
+import './ui/components/Viewer';
+import { bus } from './core/event-bus';
 
-try {
-  const app = mount(App, {
-    target: document.getElementById('app')!,
-  });
+class PDFiuhApp {
+  private worker: Worker;
+  private bootStatus: HTMLElement;
+  private bootScreen: HTMLElement;
+  private appContainer: HTMLElement;
+  private viewerComponent: any;
+  private currentDocId = 'demo-doc-123';
 
-  const loader = document.getElementById('loader');
-  if (loader) loader.style.display = 'none';
+  constructor() {
+    this.bootStatus = document.getElementById('boot-status')!;
+    this.bootScreen = document.getElementById('boot-screen')!;
+    this.appContainer = document.getElementById('viewer-container')!;
 
-  console.log('pdfiuh mounted successfully');
-} catch (e) {
-  console.error('Critical error mounting pdfiuh:', e);
-  const appEl = document.getElementById('app');
-  if (appEl) {
-    appEl.innerHTML = `
-      <div style="color: white; padding: 20px; text-align: center; font-family: sans-serif;">
-        <h1>Errore Critico</h1>
-        <p>${e instanceof Error ? e.message : String(e)}</p>
-        <p>Controlla la console del browser per maggiori dettagli.</p>
-      </div>
-    `;
+    this.registerServiceWorker();
+    this.initWorker();
   }
-  const loader = document.getElementById('loader');
-  if (loader) loader.style.display = 'none';
+
+  private async registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/public/sw.js');
+        console.log('[PWA] Service Worker registered successfully.');
+      } catch (err) {
+        console.error('[PWA] Service Worker registration failed:', err);
+      }
+    }
+  }
+
+  private initWorker() {
+    this.worker = new Worker(
+      new URL('./core/worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
+    this.worker.onerror = (err) => this.handleCriticalError(err);
+
+    this.updateStatus('Inizializzazione Motore WASM...');
+    this.worker.postMessage({ type: 'INIT' });
+  }
+
+  private handleWorkerMessage(data: any) {
+    const { type, payload } = data;
+
+    switch (type) {
+      case 'INIT_SUCCESS':
+        this.updateStatus('Motore Pronto. Caricamento Documento...');
+        this.loadDemoPDF();
+        break;
+
+      case 'PDF_LOADED':
+        this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
+        this.setupMainUI(payload.totalPages);
+        break;
+
+      case 'ERROR':
+        this.handleCriticalError(payload);
+        break;
+    }
+  }
+
+  private loadDemoPDF() {
+    const mockBuffer = new ArrayBuffer(1024);
+    this.worker.postMessage({
+      type: 'LOAD_PDF',
+      payload: { buffer: mockBuffer }
+    }, [mockBuffer]);
+  }
+
+  private setupMainUI(totalPages: number) {
+    this.appContainer.innerHTML = '';
+    this.appContainer.className = 'pdfiuh-app';
+    this.appContainer.style.display = 'grid';
+
+    this.appContainer.innerHTML = `
+      <pdfiuh-toolbar></pdfiuh-toolbar>
+      <pdfiuh-sidebar></pdfiuh-sidebar>
+      <pdfiuh-viewer id="main-viewer"></pdfiuh-viewer>
+    `;
+
+    this.viewerComponent = document.getElementById('main-viewer');
+    this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
+
+    this.hideBootScreen();
+  }
+
+  private updateStatus(text: string) {
+    this.bootStatus.innerText = text;
+  }
+
+  private hideBootScreen() {
+    this.bootScreen.style.opacity = '0';
+    setTimeout(() => {
+      this.bootScreen.style.display = 'none';
+    }, 300);
+  }
+
+  private handleCriticalError(err: any) {
+    console.error('[CRITICAL ERROR]', err);
+    this.bootStatus.style.color = 'var(--error-color)';
+    this.bootStatus.innerText = `Errore Critico: ${err}`;
+  }
 }
 
-export default {};
+window.addEventListener('DOMContentLoaded', () => {
+  new PDFiuhApp();
+});

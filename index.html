@@ -2,36 +2,68 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>pdfiuh - Lettore PDF Ottimizzato</title>
-  <link rel="icon" href="./logo pdfiuh.png">
-  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>pdfiuh - Professional PDF Reader</title>
+  <link rel="icon" href="/public/assets/icon-192.png">
+  <link rel="manifest" href="/public/manifest.webmanifest">
+  <meta name="theme-color" content="#61afef">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/src/ui/styles.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; overflow: hidden; }
-    body { background: #0d0f14; color: #abb2bf; font-family: system-ui, -apple-system, sans-serif; }
-    #app { height: 100%; display: flex; flex-direction: column; }
-    .initial-loader {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #abb2bf;
-      font-family: sans-serif;
+    :root {
+      --bg-color: #0d0f14;
+      --surface-color: #1a1d24;
+      --text-color: #abb2bf;
+      --accent-color: #61afef;
+      --error-color: #e06c75;
+      --border: #2c313a;
+    }
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: var(--bg-color);
+      color: var(--text-color);
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+    #boot-screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
       z-index: 1000;
+      background: var(--bg-color);
+      transition: opacity 0.3s ease;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(97, 175, 239, 0.2);
+      border-top-color: var(--accent-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #boot-status {
+      font-size: 14px;
+      font-weight: 300;
+      letter-spacing: 0.5px;
+    }
+    #viewer-container {
+      display: none;
+      width: 100vw; height: 100vh;
+      overflow: auto;
     }
   </style>
 </head>
 <body>
-  <div id="app"></div>
-  <div id="loader" class="initial-loader">Caricamento pdfiuh...</div>
-  <script>
-    console.log('pdfiuh: HTML loaded, waiting for JS bundle...');
-    window.addEventListener('DOMContentLoaded', () => {
-      console.log('pdfiuh: DOMContentLoaded');
-    });
-  </script>
+  <div id="boot-screen">
+    <div class="spinner"></div>
+    <div id="boot-status">Inizializzazione pdfiuh...</div>
+  </div>
+
+  <div id="viewer-container"></div>
+
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
