@@ -1,4 +1,0 @@
-  File "C:\Users\marco\Documents\github\pdfiuh\restore_viewer.py", line 1
-    content = r'''import { bus } from '../../core/event-bus';
-              ^
-SyntaxError: unterminated triple-quoted string literal (detected at line 236)

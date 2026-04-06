@@ -4,7 +4,7 @@ import './ui/components/Viewer';
 import { bus } from './core/event-bus';
 
 class PDFiuhApp {
-  private worker: Worker;
+  private worker: Worker | null = null;
   private bootStatus: HTMLElement;
   private bootScreen: HTMLElement;
   private appContainer: HTMLElement;
@@ -17,6 +17,9 @@ class PDFiuhApp {
     this.bootScreen = document.getElementById('boot-screen')!;
     this.appContainer = document.getElementById('viewer-container')!;
 
+    console.log('[Main] App started. Initializing...');
+    this.updateStatus('Avvio sistema...');
+
     this.registerServiceWorker();
     this.initWorker();
   }
@@ -25,28 +28,46 @@ class PDFiuhApp {
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('./public/sw.js');
-        console.log('[PWA] Service Worker registered successfully.');
+        console.log('[Main] Service Worker registered.');
       } catch (err) {
-        console.error('[PWA] Service Worker registration failed:', err);
+        console.warn('[Main] SW registration failed:', err);
       }
     }
   }
 
   private initWorker() {
-    this.worker = new Worker(
-      new URL('./core/worker.ts', import.meta.url),
-      { type: 'module' }
-    );
+    this.updateStatus('Connessione al motore WASM...');
 
-    this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
-    this.worker.onerror = (err) => this.handleCriticalError(err);
+    try {
+      // Utilizziamo un percorso relativo semplice per massimizzare la compatibilità
+      this.worker = new Worker(
+        new URL('./core/worker.ts', import.meta.url),
+        { type: 'module' }
+      );
 
-    this.updateStatus('Inizializzazione Motore WASM...');
-    this.worker.postMessage({ type: 'INIT' });
+      this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
+      this.worker.onerror = (err) => this.handleCriticalError(`Errore Worker: ${err}`);
+
+      // Timeout di sicurezza: se il worker non risponde in 5 secondi, c'è un problema di caricamento
+      const bootTimeout = setTimeout(() => {
+        if (this.bootScreen.style.display !== 'none') {
+          this.handleCriticalError('Il motore PDF non risponde. Verifica la connessione o ricarica la pagina.');
+        }
+      }, 5000);
+
+      this.worker.postMessage({ type: 'INIT' });
+
+      // Rimuoviamo il timeout quando riceviamo la prima risposta
+      this.worker.addEventListener('message', () => clearTimeout(bootTimeout), { once: true });
+
+    } catch (err) {
+      this.handleCriticalError(`Impossibile avviare il Worker: ${err}`);
+    }
   }
 
   private handleWorkerMessage(data: any) {
     const { type, payload } = data;
+    console.log(`[Main] Worker Message: ${type}`);
 
     switch (type) {
       case 'INIT_SUCCESS':
@@ -60,20 +81,22 @@ class PDFiuhApp {
         break;
 
       case 'ERROR':
-        this.handleCriticalError(payload);
+        this.handleCriticalError(`Errore Motore: ${payload}`);
         break;
     }
   }
 
   private loadDemoPDF() {
+    console.log('[Main] Loading demo PDF...');
     const mockBuffer = new ArrayBuffer(1024);
-    this.worker.postMessage({
+    this.worker?.postMessage({
       type: 'LOAD_PDF',
       payload: { buffer: mockBuffer }
     }, [mockBuffer]);
   }
 
   private setupMainUI(totalPages: number, outline: any[]) {
+    console.log('[Main] Setting up UI...');
     this.appContainer.innerHTML = '';
     this.appContainer.className = 'pdfiuh-app';
     this.appContainer.style.display = 'grid';
@@ -85,15 +108,20 @@ class PDFiuhApp {
     `;
 
     this.sidebarComponent = document.getElementById('main-sidebar');
-    this.sidebarComponent.updateToC(outline);
+    if (this.sidebarComponent) {
+      this.sidebarComponent.updateToC(outline);
+    }
 
     this.viewerComponent = document.getElementById('main-viewer');
-    this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
+    if (this.viewerComponent) {
+      this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
+    }
 
     this.hideBootScreen();
   }
 
   private updateStatus(text: string) {
+    console.log(`[Status] ${text}`);
     this.bootStatus.innerText = text;
   }
 
@@ -108,11 +136,16 @@ class PDFiuhApp {
     console.error('[CRITICAL ERROR]', err);
     this.bootStatus.style.color = 'var(--error-color)';
     this.bootStatus.innerText = `Errore Critico: ${err}`;
+    this.bootScreen.style.opacity = '1';
   }
 }
 
 function startApp() {
-  new PDFiuhApp();
+  try {
+    new PDFiuhApp();
+  } catch (err) {
+    console.error('App crash during init:', err);
+  }
 }
 
 if (document.readyState === 'loading') {
