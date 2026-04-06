@@ -3,7 +3,7 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/pdfiuh/',
+  base: './',
   plugins: [
     svelte({
       compilerOptions: {
