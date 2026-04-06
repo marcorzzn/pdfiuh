@@ -24,7 +24,7 @@ class PDFiuhApp {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/public/sw.js');
+        await navigator.serviceWorker.register('./public/sw.js');
         console.log('[PWA] Service Worker registered successfully.');
       } catch (err) {
         console.error('[PWA] Service Worker registration failed:', err);
@@ -111,6 +111,12 @@ class PDFiuhApp {
   }
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+function startApp() {
   new PDFiuhApp();
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}
