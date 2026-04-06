@@ -3,16 +3,27 @@ import { AnnotationEngine, NormalizedCoord } from '../../annotations/engine';
 import { storage, Annotation } from '../../annotations/storage';
 import type { Tool } from '../components/Toolbar';
 
+interface PageElement {
+  canvas: HTMLCanvasElement;
+  svg: SVGSVGElement;
+  container: HTMLDivElement;
+}
+
 class PDFiuhViewer extends HTMLElement {
-  private worker: Worker;
+  private worker: Worker | null = null;
   private zoom = 1.0;
   private totalPages = 0;
-  private currentPages: Map<number, { canvas: HTMLCanvasElement, svg: SVGSVGElement }> = new Map();
-  private container: HTMLDivElement;
+  private docId = 'demo-doc-123';
+  private currentPages = new Map<number, PageElement>();
   private activeTool: Tool = 'select';
+
+  // Drawing state
   private isDrawing = false;
   private currentPathPoints: number[] = [];
-  private activeAnnotationId: string | null = null;
+
+  // Constants for A4 Page
+  private readonly BASE_WIDTH = 595;
+  private readonly BASE_HEIGHT = 842;
 
   constructor() {
     super();
@@ -33,21 +44,23 @@ class PDFiuhViewer extends HTMLElement {
     bus.subscribe('zoom-change', (delta) => {
       this.zoom = Math.max(0.2, Math.min(5.0, this.zoom + delta));
       this.updateLayout();
-      bus.publish('zoom-updated', this.zoom);
     });
 
     bus.subscribe('fit-change', (type) => {
-      this.zoom = type === 'width' ? 0.8 : 0.5; // Mock values
+      this.zoom = type === 'width' ? 0.8 : 0.5;
       this.updateLayout();
-      bus.publish('zoom-updated', this.zoom);
+    });
+
+    bus.subscribe('go-to-page', (pageNumber: number) => {
+      this.scrollToPage(pageNumber);
     });
   }
 
   private updateInteractionMode() {
-    // Se siamo in modalità 'select', permettiamo l'interazione con gli elementi SVG
-    // Altrimenti, l'overlay intercetta tutto per disegnare
     const overlays = this.shadowRoot!.querySelectorAll('svg');
     overlays.forEach(svg => {
+      // Se siamo in 'select', permettiamo l'interazione con gli elementi SVG (per spostarli/eliminarli)
+      // Altrimenti, l'overlay intercetta tutto per disegnare
       svg.style.pointerEvents = this.activeTool === 'select' ? 'auto' : 'all';
     });
   }
@@ -58,20 +71,23 @@ class PDFiuhViewer extends HTMLElement {
         :host {
           display: block;
           height: 100%;
-          overflow: auto;
-          background: #333;
-          position: relative;
+          overflow-y: auto;
+          background: #1e1e1e;
+          scrollbar-width: thin;
+          scrollbar-color: #2c313a transparent;
         }
         .pages-container {
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 20px 0;
+          padding: 40px 0;
         }
         .page-wrapper {
           position: relative;
-          margin-bottom: 20px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+          margin-bottom: 40px;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+          background: white;
+          transition: transform 0.1s ease-out;
         }
         canvas {
           display: block;
@@ -81,7 +97,7 @@ class PDFiuhViewer extends HTMLElement {
           position: absolute;
           top: 0; left: 0;
           width: 100%; height: 100%;
-          pointer-events: none;
+          user-select: none;
         }
         .annotation-path {
           fill: none;
@@ -90,169 +106,179 @@ class PDFiuhViewer extends HTMLElement {
           stroke-linecap: round;
           stroke-linejoin: round;
         }
-        .annotation-highlight {
-          fill: rgba(255, 255, 0, 0.4);
-          mix-blend-mode: multiply;
-        }
       </style>
       <div class="pages-container" id="pages-container"></div>
     `;
     this.container = this.shadowRoot!.getElementById('pages-container')!;
-    this.addEventListener('scroll', () => this.updateVisiblePages());
   }
 
-  public async setDocumentInfo(docId: string, totalPages: number, worker: Worker) {
+  private get container() {
+    return this.shadowRoot!.getElementById('pages-container')!;
+  }
+
+  public setDocumentInfo(docId: string, totalPages: number, worker: Worker) {
+    this.docId = docId;
     this.totalPages = totalPages;
     this.worker = worker;
     this.updateLayout();
-
-    // Carica annotazioni esistenti
-    const annotations = await storage.loadAnnotations(docId);
-    this.renderExistingAnnotations(annotations);
-  }
-
-  private updateVisiblePages() {
-    // Mock virtualizzazione: carica prime 3 pagine
-    if (this.currentPages.size === 0) {
-      for (let i = 1; i <= Math.min(this.totalPages, 3); i++) {
-        this.createPage(i);
-      }
-    }
-  }
-
-  private createPage(pageNumber: number) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'page-wrapper';
-
-    const canvas = document.createElement('canvas');
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-
-    wrapper.appendChild(canvas);
-    wrapper.appendChild(svg);
-    this.container.appendChild(wrapper);
-
-    this.currentPages.set(pageNumber, { canvas, svg });
-
-    // Gestione input per disegni
-    svg.addEventListener('pointerdown', (e) => this.startDrawing(e, pageNumber));
-    svg.addEventListener('pointermove', (e) => this.draw(e, pageNumber));
-    svg.addEventListener('pointerup', (e) => this.stopDrawing(e, pageNumber));
-
-    this.requestPageRender(pageNumber);
-  }
-
-  private requestPageRender(pageNumber: number) {
-    const page = this.currentPages.get(pageNumber);
-    if (!page) return;
-
-    const { canvas } = page;
-    const width = 800 * this.zoom;
-    const height = 1100 * this.zoom;
-    canvas.width = width;
-    canvas.height = height;
-
-    this.worker.postMessage({
-      type: 'RENDER_PAGE',
-      payload: { pageNumber, scale: this.zoom, width, height }
-    });
-
-    const handler = (e: MessageEvent) => {
-      if (e.data.type === 'PAGE_RENDERED' && e.data.payload.pageNumber === pageNumber) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) ctx.drawImage(e.data.payload.bitmap, 0, 0);
-        this.worker.removeEventListener('message', handler);
-      }
-    };
-    this.worker.addEventListener('message', handler);
-  }
-
-  private startDrawing(e: PointerEvent, pageNumber: number) {
-    if (this.activeTool === 'select') return;
-
-    this.isDrawing = true;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const normalized = AnnotationEngine.pixelToNormalized(x, y, rect.width, rect.height);
-    this.currentPathPoints = [normalized.x, normalized.y];
-    this.activeAnnotationId = crypto.randomUUID();
-
-    if (this.activeTool === 'ink' || this.activeTool === 'highlight') {
-      const svg = this.currentPages.get(pageNumber)!.svg;
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('id', this.activeAnnotationId!);
-      path.setAttribute('class', this.activeTool === 'ink' ? 'annotation-path' : 'annotation-highlight');
-      if (this.activeTool === 'highlight') path.setAttribute('stroke-width', '20');
-      svg.appendChild(path);
-    }
-  }
-
-  private draw(e: PointerEvent, pageNumber: number) {
-    if (!this.isDrawing) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const normalized = AnnotationEngine.pixelToNormalized(x, y, rect.width, rect.height);
-
-    this.currentPathPoints.push(normalized.x, normalized.y);
-
-    const svg = this.currentPages.get(pageNumber)!.svg;
-    const path = svg.getElementById(this.activeAnnotationId!);
-    if (path) {
-      path.setAttribute('d', AnnotationEngine.generateSvgPath(this.currentPathPoints, rect.width, rect.height));
-    }
-  }
-
-  private async stopDrawing(e: PointerEvent, pageNumber: number) {
-    if (!this.isDrawing) return;
-    this.isDrawing = false;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-
-    // Salva l'annotazione in IndexedDB
-    const annotation: Annotation = {
-      id: this.activeAnnotationId!,
-      page: pageNumber,
-      type: this.activeTool as any,
-      color: '#61afef',
-      points: this.currentPathPoints
-    };
-
-    await storage.saveAnnotation('demo-doc', annotation);
-    this.activeAnnotationId = null;
-    this.currentPathPoints = [];
-  }
-
-  private renderExistingAnnotations(annotations: Annotation[]) {
-    annotations.forEach(ann => {
-      const page = this.currentPages.get(ann.page);
-      if (!page) return;
-
-      const svg = page.svg;
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('id', ann.id);
-      path.setAttribute('class', ann.type === 'ink' ? 'annotation-path' : 'annotation-highlight');
-      if (ann.type === 'highlight') path.setAttribute('stroke-width', '20');
-
-      const rect = svg.getBoundingClientRect();
-      path.setAttribute('d', AnnotationEngine.generateSvgPath(ann.points!, rect.width, rect.height));
-      svg.appendChild(path);
-    });
   }
 
   private updateLayout() {
-    this.currentPages.forEach(({ canvas, svg }) => {
-      const width = 800 * this.zoom;
-      const height = 1100 * this.zoom;
-      canvas.width = width;
-      canvas.height = height;
-      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-      // In una versione reale, qui forzeremmo il re-render del bitmap
+    this.container.innerHTML = '';
+    this.currentPages.clear();
+
+    // Creiamo i placeholder per tutte le pagine per mantenere lo scroll corretto (Virtualizzazione)
+    for (let i = 1; i <= this.totalPages; i++) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'page-wrapper';
+      wrapper.dataset.page = i.toString();
+
+      const width = this.BASE_WIDTH * this.zoom;
+      const height = this.BASE_HEIGHT * this.zoom;
+      wrapper.style.width = `${width}px`;
+      wrapper.style.height = `${height}px`;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = this.BASE_WIDTH; // Rendering a risoluzione base
+      canvas.height = this.BASE_HEIGHT;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${this.BASE_WIDTH} ${this.BASE_HEIGHT}`);
+
+      wrapper.appendChild(canvas);
+      wrapper.appendChild(svg);
+      this.container.appendChild(wrapper);
+
+      this.currentPages.set(i, { canvas, svg, container: wrapper });
+      this.setupPageEvents(i, svg);
+    }
+
+    this.setupIntersectionObserver();
+  }
+
+  private setupIntersectionObserver() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const pageNum = parseInt(entry.target.dataset.page!);
+        if (entry.isIntersecting) {
+          this.renderPage(pageNum);
+        }
+      });
+    }, { root: this, threshold: 0.1 });
+
+    this.container.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
+  }
+
+  private async renderPage(pageNum: number) {
+    const page = this.currentPages.get(pageNum);
+    if (!page || !this.worker) return;
+
+    // 1. Richiedi rasterizzazione al worker
+    this.worker.postMessage({
+      type: 'RENDER_PAGE',
+      payload: {
+        pageNumber: pageNum,
+        scale: 1.0, // Renderizziamo sempre a 1:1 e scaliamo via CSS
+        width: this.BASE_WIDTH,
+        height: this.BASE_HEIGHT
+      }
     });
+
+    // Ascolta il risultato per questa specifica pagina
+    // (Nota: In un'app reale useremmo un sistema di callback o promesse per evitare conflitti di messaggi)
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data.type === 'PAGE_RENDERED' && e.data.payload.pageNumber === pageNum) {
+        const { bitmap } = e.data.payload;
+        const ctx = page.canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(bitmap, 0, 0);
+        }
+        this.worker!.removeEventListener('message', handleMessage);
+        this.loadAnnotations(pageNum, page.svg);
+      }
+    };
+    this.worker.addEventListener('message', handleMessage);
+  }
+
+  private async loadAnnotations(pageNum: number, svg: SVGSVGElement) {
+    const annotations = await storage.loadAnnotations(this.docId);
+    const pageAnnots = annotations.filter(a => a.page === pageNum);
+
+    svg.innerHTML = '';
+    pageAnnots.forEach(ann => {
+      if (ann.type === 'ink' && ann.points) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', AnnotationEngine.generateSvgPath(ann.points, this.BASE_WIDTH, this.BASE_HEIGHT));
+        path.setAttribute('class', 'annotation-path');
+        svg.appendChild(path);
+      }
+    });
+  }
+
+  private setupPageEvents(pageNum: number, svg: SVGSVGElement) {
+    svg.addEventListener('mousedown', (e) => {
+      if (this.activeTool === 'select') return;
+
+      this.isDrawing = true;
+      this.currentPathPoints = [];
+
+      const rect = svg.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (this.BASE_WIDTH / rect.width);
+      const y = (e.clientY - rect.top) * (this.BASE_HEIGHT / rect.height);
+
+      this.currentPathPoints.push(x / this.BASE_WIDTH, y / this.BASE_HEIGHT);
+      this.drawTempPath(svg);
+    });
+
+    svg.addEventListener('mousemove', (e) => {
+      if (!this.isDrawing) return;
+
+      const rect = svg.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (this.BASE_WIDTH / rect.width);
+      const y = (e.clientY - rect.top) * (this.BASE_HEIGHT / rect.height);
+
+      this.currentPathPoints.push(x / this.BASE_WIDTH, y / this.BASE_HEIGHT);
+      this.drawTempPath(svg);
+    });
+
+    svg.addEventListener('mouseup', async () => {
+      if (!this.isDrawing) return;
+      this.isDrawing = false;
+
+      const ann: Annotation = {
+        id: Math.random().toString(36).substr(2, 9),
+        page: pageNum,
+        type: 'ink',
+        color: '#61afef',
+        points: this.currentPathPoints
+      };
+
+      await storage.saveAnnotation(this.docId, ann);
+      this.loadAnnotations(pageNum, svg);
+    });
+  }
+
+  private drawTempPath(svg: SVGSVGElement) {
+    // Rimuove percorsi temporanei precedenti
+    const existing = svg.querySelector('.temp-path');
+    if (existing) existing.remove();
+
+    if (this.currentPathPoints.length < 2) return;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', AnnotationEngine.generateSvgPath(this.currentPathPoints, this.BASE_WIDTH, this.BASE_HEIGHT));
+    path.setAttribute('class', 'annotation-path temp-path');
+    svg.appendChild(path);
+  }
+
+  private scrollToPage(pageNum: number) {
+    const page = this.currentPages.get(pageNum);
+    if (page) {
+      page.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }
 }
 
 customElements.define('pdfiuh-viewer', PDFiuhViewer);
-export default PDFiuhViewer;

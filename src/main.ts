@@ -107,7 +107,7 @@ class PDFiuhApp {
   private handleCriticalError(err: any) {
     console.error('[CRITICAL ERROR]', err);
     this.bootStatus.style.color = 'var(--error-color)';
-    this.bootStatus.innerText = \`Errore Critico: \${err}\`;
+    this.bootStatus.innerText = `Errore Critico: ${err}`;
   }
 }
 
