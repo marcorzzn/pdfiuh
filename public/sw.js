@@ -1,11 +1,11 @@
 const CACHE_NAME = 'pdfiuh-v1';
 const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/src/main.ts',
-  '/src/ui/styles.css',
-  '/public/manifest.webmanifest',
-  '/public/pdfium.wasm' // The critical engine binary
+  './',
+  './index.html',
+  './src/main.ts',
+  './src/ui/styles.css',
+  './public/manifest.webmanifest',
+  './public/pdfium.wasm' // The critical engine binary
 ];
 
 self.addEventListener('install', (event) => {
