@@ -1,7 +1,7 @@
 {
   "name": "pdfiuh",
   "short_name": "pdfiuh",
-  "description": "PDF reader con annotazioni per GitHub Pages",
+  "description": "Lettore e annotatore PDF super-ottimizzato",
   "start_url": "/pdfiuh/",
   "scope": "/pdfiuh/",
   "display": "standalone",
@@ -9,13 +9,7 @@
   "theme_color": "#0d0f14",
   "icons": [
     {
-      "src": "/pdfiuh/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/pdfiuh/icons/icon-512.png",
+      "src": "/pdfiuh/logo pdfiuh.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

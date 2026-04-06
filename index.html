@@ -3,18 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' blob: data:;">
-  <title>pdfiuh</title>
+  <title>pdfiuh - Lettore PDF Ottimizzato</title>
+  <link rel="icon" href="./logo pdfiuh.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; }
     body { background: #0d0f14; color: #abb2bf; font-family: system-ui, -apple-system, sans-serif; }
     #app { height: 100%; display: flex; flex-direction: column; }
+    .initial-loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #abb2bf;
+      font-family: sans-serif;
+      z-index: 1000;
+    }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <div class="initial-loader">Caricamento pdfiuh...</div>
+  </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

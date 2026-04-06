@@ -1,6 +1,6 @@
 <script lang="ts">
   import { currentPage, totalPages, zoom, zoomBy, resetZoom, rotate } from '../stores/viewer.store';
-  import { activeTool, loadAnnotations } from '../stores/annotations.store';
+  import { activeTool, loadAnnotations, addAnnotation } from '../stores/annotations.store';
   import { getAllAnnotations } from '../core/annotation-store';
   import { downloadXFDF } from '../core/annotation-export';
   import type { Annotation } from '../core/annotation-store';
@@ -20,6 +20,42 @@
     }
     downloadXFDF(loadedAnnotations, docId);
     showSaveMenu = false;
+  }
+
+  async function importAnnotations() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xfdf,.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      if (file.name.endsWith('.xfdf')) {
+        const { loadXFDFFromFile } = await import('../core/annotation-export');
+        const annots = await loadXFDFFromFile(file);
+        for (const ann of annots) {
+          await addAnnotation({
+            docId,
+            pageNumber: ann.pageNumber,
+            type: ann.type,
+            data: ann.data
+          });
+        }
+      } else if (file.name.endsWith('.json')) {
+        const text = await file.text();
+        const annots = JSON.parse(text);
+        for (const ann of annots) {
+          await addAnnotation({
+            docId,
+            pageNumber: ann.pageNumber,
+            type: ann.type,
+            data: ann.data
+          });
+        }
+      }
+      loadAndCacheAnnotations();
+    };
+    input.click();
   }
 
   function toggleAnnotationTool(tool: Annotation['type']) {
@@ -77,6 +113,7 @@
   {#if showSaveMenu}
     <div class="save-menu">
       <button class="btn" onclick={downloadXFDFFile}>Scarica annotazioni (XFDF)</button>
+      <button class="btn" onclick={importAnnotations}>Importa annotazioni</button>
       <span class="hint">PDF annotato sara disponibile dopo integrazione pdf-lib</span>
     </div>
   {/if}

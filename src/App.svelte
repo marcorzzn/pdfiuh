@@ -5,6 +5,7 @@
   import Sidebar from './ui/Sidebar.svelte';
   import DropZone from './ui/DropZone.svelte';
   import { setPdfBuffer } from './stores/pdf.store';
+  import { loadAnnotations } from './stores/annotations.store';
   import './styles/global.css';
   import './styles/themes.css';
 
@@ -23,6 +24,7 @@
     currentDocId = docId;
     fileName = name;
     setPdfBuffer(buffer);
+    loadAnnotations(docId);
   }
 
   function toggleSidebar() {

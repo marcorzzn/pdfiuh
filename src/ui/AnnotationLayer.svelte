@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { activeTool, addAnnotation, annotations } from '../stores/annotations.store';
+  import { activeTool, addAnnotation, annotations, removeAnnotation } from '../stores/annotations.store';
   import type { Annotation } from '../core/annotation-store';
   import { currentPage, zoom } from '../stores/viewer.store';
 
@@ -12,6 +12,7 @@
   let notePoint = $state<{ x: number; y: number } | null>(null);
   let selectStart = $state<{ x: number; y: number } | null>(null);
   let selectRect = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+  let selectedAnnId = $state<number | null>(null);
 
   // FIX BUG #5b: le coordinate devono essere in spazio PDF (normalizzate per zoom)
   // Le coordinate SVG (pixel schermo) vengono divise per lo zoom corrente
@@ -95,6 +96,18 @@
     selectRect = null;
   }
 
+  function handleAnnClick(id: number) {
+    if ($activeTool !== 'select') return;
+    selectedAnnId = id;
+  }
+
+  function deleteSelected() {
+    if (selectedAnnId !== null) {
+      removeAnnotation(selectedAnnId);
+      selectedAnnId = null;
+    }
+  }
+
   function saveNote() {
     if (!notePoint) return;
     addAnnotation({
@@ -143,7 +156,9 @@
           width={ann.data.rect.width}
           height={ann.data.rect.height}
           fill={getAnnColor(ann)}
-          opacity="0.3"
+          opacity={selectedAnnId === ann.id ? "0.6" : "0.3"}
+          onclick={() => handleAnnClick(ann.id!)}
+          style="cursor: pointer;"
         />
       {:else if ann.type === 'underline' && ann.data.rect}
         <line
@@ -152,7 +167,9 @@
           x2={ann.data.rect.x + ann.data.rect.width}
           y2={ann.data.rect.y + ann.data.rect.height}
           stroke={getAnnColor(ann)}
-          stroke-width="2"
+          stroke-width={selectedAnnId === ann.id ? "4" : "2"}
+          onclick={() => handleAnnClick(ann.id!)}
+          style="cursor: pointer;"
         />
       {:else if ann.type === 'strikeout' && ann.data.rect}
         <line
@@ -161,14 +178,18 @@
           x2={ann.data.rect.x + ann.data.rect.width}
           y2={ann.data.rect.y + ann.data.rect.height / 2}
           stroke={getAnnColor(ann)}
-          stroke-width="2"
+          stroke-width={selectedAnnId === ann.id ? "4" : "2"}
+          onclick={() => handleAnnClick(ann.id!)}
+          style="cursor: pointer;"
         />
       {:else if ann.type === 'note' && ann.data.rect}
         <text
           x={ann.data.rect.x}
           y={ann.data.rect.y + 16}
-          fill="#4f8ef7"
+          fill={selectedAnnId === ann.id ? "#fff" : "#4f8ef7"}
           font-size="12"
+          onclick={() => handleAnnClick(ann.id!)}
+          style="cursor: pointer;"
         >💬 {ann.data.text}</text>
       {:else if ann.type === 'ink' && ann.data.paths}
         {#each ann.data.paths as path}
@@ -176,13 +197,26 @@
             d={pathToD(path.points)}
             fill="none"
             stroke={getAnnColor(ann)}
-            stroke-width="2"
+            stroke-width={selectedAnnId === ann.id ? "4" : "2"}
             stroke-linecap="round"
+            onclick={() => handleAnnClick(ann.id!)}
+            style="cursor: pointer;"
           />
         {/each}
       {/if}
     {/if}
   {/each}
+
+  {#if selectedAnnId}
+    <foreignObject
+      x={0} y={0} width={props.canvasWidth} height={props.canvasHeight}
+      style="pointer-events: none;"
+    >
+      <div class="delete-overlay">
+        <button class="btn btn-danger" onclick={deleteSelected}>Elimina annotazione</button>
+      </div>
+    </foreignObject>
+  {/if}
 
   {#if isDrawing && currentPath.length > 0}
     <path d={pathToD(currentPath)} fill="none" stroke="#e5c07b" stroke-width="2" stroke-linecap="round" />
@@ -245,5 +279,17 @@
     display: flex;
     gap: 6px;
     margin-top: 4px;
+  }
+  .delete-overlay {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    pointer-events: auto;
+  }
+  .btn-danger {
+    background: var(--accent2) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: bold;
   }
 </style>
