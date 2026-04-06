@@ -24,9 +24,14 @@
   </style>
 </head>
 <body>
-  <div id="app">
-    <div class="initial-loader">Caricamento pdfiuh...</div>
-  </div>
+  <div id="app"></div>
+  <div id="loader" class="initial-loader">Caricamento pdfiuh...</div>
+  <script>
+    console.log('pdfiuh: HTML loaded, waiting for JS bundle...');
+    window.addEventListener('DOMContentLoaded', () => {
+      console.log('pdfiuh: DOMContentLoaded');
+    });
+  </script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

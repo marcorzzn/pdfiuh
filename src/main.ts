@@ -5,6 +5,10 @@ try {
   const app = mount(App, {
     target: document.getElementById('app')!,
   });
+
+  const loader = document.getElementById('loader');
+  if (loader) loader.style.display = 'none';
+
   console.log('pdfiuh mounted successfully');
 } catch (e) {
   console.error('Critical error mounting pdfiuh:', e);
@@ -18,6 +22,8 @@ try {
       </div>
     `;
   }
+  const loader = document.getElementById('loader');
+  if (loader) loader.style.display = 'none';
 }
 
 export default {};
