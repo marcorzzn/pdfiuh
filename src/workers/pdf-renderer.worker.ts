@@ -1,11 +1,15 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
-// pdfjs-dist runs inside this Vite-bundled worker context.
-// Disable internal worker to prevent nested worker-in-worker crash.
-pdfjsLib.GlobalWorkerOptions.disableWorker = true;
+// FIX BUG #1 + #2: PDF.js v4 richiede workerSrc esplicito.
+// disableWorker non esiste in v4. workerPort: self crashava PDF.js.
+// Vite risolve questo URL al build time e include pdf.worker.mjs nel bundle.
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.mjs',
+  import.meta.url
+).href;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']> | null = null;
-const pageCache = new Map<number, { page: unknown }>();
+const pageCache = new Map<number, { page: ReturnType<typeof pdfDoc.getPage> extends Promise<infer T> ? T : never }>();
 let maxPool = 3;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -13,11 +17,22 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === 'LOAD') {
     try {
+      // Cleanup precedente se esiste
+      if (pdfDoc) {
+        for (const [, cached] of pageCache) {
+          (cached.page as { cleanup?: () => void })?.cleanup?.();
+        }
+        pageCache.clear();
+        pdfDoc.destroy();
+        pdfDoc = null;
+      }
+
       const data = new Uint8Array(payload.buffer);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const docInit: any = { data, workerPort: self as unknown as Worker };
-      const loadingTask = pdfjsLib.getDocument(docInit);
+      // FIX BUG #2: rimosso workerPort: self che crashava PDF.js.
+      // PDF.js spawna il suo worker usando workerSrc sopra.
+      const loadingTask = pdfjsLib.getDocument({ data });
       pdfDoc = await loadingTask.promise;
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fp = (pdfDoc as any).fingerprints?.[0] ?? '';
       self.postMessage({ type: 'LOADED', numPages: pdfDoc.numPages, fingerprint: fp });
@@ -31,7 +46,7 @@ self.onmessage = async (e: MessageEvent) => {
     const { pageNumber, scale } = payload;
 
     if (!pdfDoc) {
-      self.postMessage({ type: 'ERROR', message: 'PDF not loaded' });
+      self.postMessage({ type: 'ERROR', message: 'PDF non caricato' });
       return;
     }
 
@@ -39,7 +54,10 @@ self.onmessage = async (e: MessageEvent) => {
       const page = await pdfDoc.getPage(pageNumber);
       const viewport = page.getViewport({ scale });
 
-      const canvas = new OffscreenCanvas(viewport.width, viewport.height);
+      const canvas = new OffscreenCanvas(
+        Math.ceil(viewport.width),
+        Math.ceil(viewport.height)
+      );
       const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
 
       if (!ctx) {
@@ -47,22 +65,36 @@ self.onmessage = async (e: MessageEvent) => {
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const renderTask = page.render({ canvasContext: ctx as any, viewport });
+      const renderTask = page.render({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        canvasContext: ctx as any,
+        viewport
+      });
       await renderTask.promise;
 
       page.cleanup();
 
-      // Eviction
+      // Eviction LRU pool
       if (pageCache.size >= maxPool) {
         const firstKey = pageCache.keys().next().value;
-        if (firstKey !== undefined) pageCache.delete(firstKey);
+        if (firstKey !== undefined) {
+          const evicted = pageCache.get(firstKey);
+          (evicted?.page as { cleanup?: () => void })?.cleanup?.();
+          pageCache.delete(firstKey);
+        }
       }
-      pageCache.set(pageNumber, { page });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pageCache.set(pageNumber, { page: page as any });
 
       const bitmap = await createImageBitmap(canvas);
       self.postMessage(
-        { type: 'RENDERED', pageNumber, bitmap, width: viewport.width, height: viewport.height },
+        {
+          type: 'RENDERED',
+          pageNumber,
+          bitmap,
+          width: Math.ceil(viewport.width),
+          height: Math.ceil(viewport.height)
+        },
         [bitmap]
       );
     } catch (error) {
@@ -78,9 +110,12 @@ self.onmessage = async (e: MessageEvent) => {
 
   if (type === 'CLEANUP') {
     for (const [, cached] of pageCache) {
-      (cached.page as { cleanup: () => void })?.cleanup();
+      (cached.page as { cleanup?: () => void })?.cleanup?.();
     }
     pageCache.clear();
-    pdfDoc = null;
+    if (pdfDoc) {
+      pdfDoc.destroy();
+      pdfDoc = null;
+    }
   }
 };

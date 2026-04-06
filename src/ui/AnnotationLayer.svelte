@@ -1,42 +1,45 @@
 <script lang="ts">
   import { activeTool, addAnnotation, annotations } from '../stores/annotations.store';
   import type { Annotation } from '../core/annotation-store';
-  import { currentPage } from '../stores/viewer.store';
+  import { currentPage, zoom } from '../stores/viewer.store';
 
-  const props = $props<{ docId: string }>();
+  const props = $props<{ docId: string; canvasWidth: number; canvasHeight: number }>();
 
   let svgEl: SVGSVGElement;
   let isDrawing = $state(false);
   let currentPath = $state<{ x: number; y: number }[]>([]);
   let noteText = $state('');
   let notePoint = $state<{ x: number; y: number } | null>(null);
-  let highlightStart = $state<{ x: number; y: number } | null>(null);
   let selectStart = $state<{ x: number; y: number } | null>(null);
   let selectRect = $state<{ x: number; y: number; width: number; height: number } | null>(null);
 
+  // FIX BUG #5b: le coordinate devono essere in spazio PDF (normalizzate per zoom)
+  // Le coordinate SVG (pixel schermo) vengono divise per lo zoom corrente
+  // così le annotazioni restano allineate al contenuto PDF al variare dello zoom.
   function getCoords(e: MouseEvent): { x: number; y: number } | null {
     if (!svgEl) return null;
     const rect = svgEl.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const currentZoom = $zoom;
+    return {
+      x: (e.clientX - rect.left) / currentZoom,
+      y: (e.clientY - rect.top) / currentZoom
+    };
   }
 
   function onPointerDown(e: MouseEvent) {
     const coords = getCoords(e);
     if (!coords) return;
-
     const tool = $activeTool;
 
     if (tool === 'highlight' || tool === 'underline' || tool === 'strikeout') {
       selectStart = coords;
       return;
     }
-
     if (tool === 'ink') {
       isDrawing = true;
       currentPath = [coords];
       return;
     }
-
     if (tool === 'note') {
       notePoint = coords;
       return;
@@ -57,17 +60,19 @@
     }
     if (isDrawing && $activeTool === 'ink') {
       const coords = getCoords(e);
-      if (coords) {
-        currentPath = [...currentPath, coords];
-      }
+      if (coords) currentPath = [...currentPath, coords];
     }
   }
 
-  function onPointerUp(e: MouseEvent) {
+  function onPointerUp() {
     if (selectStart && selectRect && selectRect.width > 5 && selectRect.height > 5) {
       const tool = $activeTool;
       if (tool === 'highlight' || tool === 'underline' || tool === 'strikeout') {
-        const colors: Record<string, string> = { highlight: '#e5c07b', underline: '#4f8ef7', strikeout: '#e06c75' };
+        const colors: Record<string, string> = {
+          highlight: '#e5c07b',
+          underline: '#4f8ef7',
+          strikeout: '#e06c75'
+        };
         addAnnotation({
           docId: props.docId,
           pageNumber: $currentPage,
@@ -75,11 +80,7 @@
           data: { rect: selectRect, color: colors[tool] }
         });
       }
-      selectStart = null;
-      selectRect = null;
-      return;
     }
-
     if (isDrawing && currentPath.length > 1) {
       addAnnotation({
         docId: props.docId,
@@ -113,12 +114,22 @@
   function getAnnColor(ann: Annotation): string {
     return ann.data.color ?? '#e5c07b';
   }
+
+  // Coordinate SVG: moltiplica per zoom per tornare allo spazio schermo
+  $derived.by(() => $zoom); // accede a zoom per tracking reattivo
 </script>
 
+<!-- FIX BUG #5a: width e height espliciti uguali al canvas PDF renderizzato.
+     viewBox + transform scaling gestisce il mapping coordinate PDF → schermo.
+     Le annotazioni vengono salvate in coordinate PDF (normalizzate) e scalate
+     al render tramite il transform sull'SVG. -->
 <svg
   bind:this={svgEl}
   class="annotation-layer"
   xmlns="http://www.w3.org/2000/svg"
+  width={props.canvasWidth}
+  height={props.canvasHeight}
+  viewBox={`0 0 ${props.canvasWidth / $zoom} ${props.canvasHeight / $zoom}`}
   onmousedown={onPointerDown}
   onmousemove={onPointerMove}
   onmouseup={onPointerUp}
@@ -128,7 +139,6 @@
     {#if ann.pageNumber === $currentPage}
       {#if ann.type === 'highlight' && ann.data.rect}
         <rect
-          class="ann-highlight"
           x={ann.data.rect.x}
           y={ann.data.rect.y}
           width={ann.data.rect.width}
@@ -160,29 +170,39 @@
           y={ann.data.rect.y + 16}
           fill="#4f8ef7"
           font-size="12"
-          class="ann-note"
         >💬 {ann.data.text}</text>
       {:else if ann.type === 'ink' && ann.data.paths}
         {#each ann.data.paths as path}
-          <path d={pathToD(path.points)} fill="none" stroke={getAnnColor(ann)} stroke-width="2" stroke-linecap="round"/>
+          <path
+            d={pathToD(path.points)}
+            fill="none"
+            stroke={getAnnColor(ann)}
+            stroke-width="2"
+            stroke-linecap="round"
+          />
         {/each}
       {/if}
     {/if}
   {/each}
 
-  <!-- Active drawing preview -->
   {#if isDrawing && currentPath.length > 0}
     <path d={pathToD(currentPath)} fill="none" stroke="#e5c07b" stroke-width="2" stroke-linecap="round" />
   {/if}
 
-  <!-- Active selection preview -->
-  {#if selectRect && $activeTool !== 'select'}
-    <rect x={selectRect.x} y={selectRect.y} width={selectRect.width} height={selectRect.height} fill="rgba(79,142,247,0.15)" stroke="#4f8ef7" stroke-dasharray="4" />
+  {#if selectRect}
+    <rect
+      x={selectRect.x}
+      y={selectRect.y}
+      width={selectRect.width}
+      height={selectRect.height}
+      fill="rgba(79,142,247,0.15)"
+      stroke="#4f8ef7"
+      stroke-dasharray="4"
+    />
   {/if}
 
-  <!-- Note input -->
   {#if notePoint}
-    <foreignObject x={notePoint.x} y={notePoint.y} width="220" height="100">
+    <foreignObject x={notePoint.x} y={notePoint.y} width={220 / $zoom} height={100 / $zoom}>
       <div class="note-input-box">
         <textarea bind:value={noteText} placeholder="Scrivi nota..."></textarea>
         <div class="note-actions">
@@ -199,11 +219,17 @@
     position: absolute;
     top: 0;
     left: 0;
+    /* FIX: pointer-events solo quando c'è uno strumento attivo,
+       altrimenti blocca lo scroll del viewer.
+       Gestire in JS controllando activeTool prima di bloccare l'evento. */
     pointer-events: auto;
     z-index: 5;
   }
   .note-input-box {
     padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
   }
   .note-input-box textarea {
     width: 210px;

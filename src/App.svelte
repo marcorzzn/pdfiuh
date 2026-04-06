@@ -13,6 +13,11 @@
   let currentDocId = $state<string | null>(null);
   let fileName = $state('');
 
+  // Dimensioni del canvas PDF renderizzato — servono a AnnotationLayer per
+  // dimensionare il suo SVG overlay correttamente (FIX BUG #5)
+  let canvasWidth = $state(0);
+  let canvasHeight = $state(0);
+
   function handlePdfLoad(docId: string, buffer: ArrayBuffer, name: string) {
     pdfLoaded = true;
     currentDocId = docId;
@@ -22,6 +27,12 @@
 
   function toggleSidebar() {
     sidebarOpen = !sidebarOpen;
+  }
+
+  // Callback passata a Viewer per aggiornare le dimensioni del canvas
+  function onCanvasResized(w: number, h: number) {
+    canvasWidth = w;
+    canvasHeight = h;
   }
 </script>
 
@@ -35,8 +46,17 @@
   <div class="main-content" class:sidenav-open={sidebarOpen}>
     <Sidebar docId={currentDocId || ''} open={sidebarOpen} onclose={toggleSidebar} />
     <div class="viewer-area">
-      <Viewer docId={currentDocId || ''} />
-      <AnnotationLayer docId={currentDocId || ''} />
+      <Viewer
+        docId={currentDocId || ''}
+        oncanvasresized={onCanvasResized}
+      />
+      {#if canvasWidth > 0}
+        <AnnotationLayer
+          docId={currentDocId || ''}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+        />
+      {/if}
     </div>
   </div>
 {/if}
@@ -47,8 +67,12 @@
     flex: 1;
     overflow: hidden;
     position: relative;
+    min-height: 0;
   }
-  .sidenav-open .viewer-area {
-    margin-left: 0;
+  .viewer-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
   }
 </style>
