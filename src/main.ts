@@ -39,8 +39,6 @@ class PDFiuhApp {
   private initWorker() {
     this.updateStatus('Connessione al motore WASM...');
 
-import WorkerConstructor from './core/worker?worker';
-// ...
     try {
       // Utilizziamo l'import ?worker di Vite per la massima compatibilità di bundling
       this.worker = new WorkerConstructor();
