@@ -1,12 +1,20 @@
+import * as pdfjsLib from 'pdfjs-dist';
+import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+
+// Configurazione del worker per PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
 /**
  * pdfiuh PDF Loader
  * Gestisce il caricamento e il rendering di PDF utilizzando PDF.js
  */
 
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-
 // Interfaccia per il motore PDF.js (invece del simulato PDFium)
 class PDFJSWorker {
+
   private pdfDocument: PDFDocumentProxy | null = null;
   private isInitialized = false;
 
