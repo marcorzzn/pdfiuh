@@ -40,7 +40,11 @@ class PDFJSWorker {
     console.log(`[Worker] Loading PDF document. Size: ${buffer.byteLength} bytes`);
 
     // Carichiamo il documento PDF usando PDF.js
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
+    // Aggiungiamo standardFontDataUrl per evitare l'effetto "quadratini" (Tofu) nei font standard
+    const loadingTask = pdfjsLib.getDocument({
+      data: buffer,
+      standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`
+    });
     this.pdfDocument = await loadingTask.promise;
 
     console.log(`[Worker] PDF loaded. Total pages: ${this.pdfDocument.numPages}`);
