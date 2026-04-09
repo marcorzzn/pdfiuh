@@ -120,6 +120,21 @@ class PDFiuhViewer extends HTMLElement {
     this.docId = docId;
     this.totalPages = totalPages;
     this.worker = worker;
+
+    // UN SOLO listener per tutte le risposte di rendering
+    this.worker.onmessage = (e) => {
+      const { type, payload } = e.data;
+      if (type === 'RENDERED') {
+        const { pageNumber, bitmap } = payload;
+        const page = this.currentPages.get(pageNumber);
+        if (page) {
+          const ctx = page.canvas.getContext('2d');
+          if (ctx) ctx.drawImage(bitmap, 0, 0);
+          this.loadAnnotations(pageNumber, page.svg);
+        }
+      }
+    };
+
     this.updateLayout();
   }
 
@@ -177,29 +192,12 @@ class PDFiuhViewer extends HTMLElement {
 
     // 1. Richiedi rasterizzazione al worker
     this.worker.postMessage({
-      type: 'RENDER_PAGE',
+      type: 'RENDER',
       payload: {
         pageNumber: pageNum,
         scale: 1.0, // Renderizziamo sempre a 1:1 e scaliamo via CSS
-        width: this.BASE_WIDTH,
-        height: this.BASE_HEIGHT
       }
     });
-
-    // Ascolta il risultato per questa specifica pagina
-    // (Nota: In un'app reale useremmo un sistema di callback o promesse per evitare conflitti di messaggi)
-    const handleMessage = (e: MessageEvent) => {
-      if (e.data.type === 'PAGE_RENDERED' && e.data.payload.pageNumber === pageNum) {
-        const { bitmap } = e.data.payload;
-        const ctx = page.canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(bitmap, 0, 0);
-        }
-        this.worker!.removeEventListener('message', handleMessage);
-        this.loadAnnotations(pageNum, page.svg);
-      }
-    };
-    this.worker.addEventListener('message', handleMessage);
   }
 
   private async loadAnnotations(pageNum: number, svg: SVGSVGElement) {

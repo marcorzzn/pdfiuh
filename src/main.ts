@@ -1,7 +1,7 @@
 import './ui/components/Toolbar';
 import './ui/components/Sidebar';
 import './ui/components/Viewer';
-import WorkerConstructor from './core/pdf-loader?worker';
+import WorkerConstructor from './workers/pdf-renderer.worker?worker';
 import { bus } from './core/event-bus';
 
 class PDFiuhApp {
@@ -95,7 +95,7 @@ class PDFiuhApp {
     try {
       const arrayBuffer = await file.arrayBuffer();
       this.worker?.postMessage({
-        type: 'LOAD_PDF',
+        type: 'LOAD',
         payload: { buffer: arrayBuffer }
       }, [arrayBuffer]);
     } catch (err) {
@@ -126,17 +126,8 @@ class PDFiuhApp {
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
       this.worker.onerror = (err) => this.handleCriticalError(`Errore Worker: ${err}`);
 
-      // Timeout di sicurezza: se il worker non risponde in 5 secondi, c'è un problema di caricamento
-      const bootTimeout = setTimeout(() => {
-        if (this.bootScreen.style.display !== 'none') {
-          this.handleCriticalError('Il motore PDF non risponde. Verifica la connessione o ricarica la pagina.');
-        }
-      }, 5000);
-
-      this.worker.postMessage({ type: 'INIT' });
-
-      // Rimuoviamo il timeout quando riceviamo la prima risposta
-      this.worker.addEventListener('message', () => clearTimeout(bootTimeout), { once: true });
+      // Poiché il nuovo worker non richiede inizializzazione esplicita, mostriamo subito la Home
+      this.showHomeScreen();
 
     } catch (err) {
       this.handleCriticalError(`Impossibile avviare il Worker: ${err}`);
@@ -148,11 +139,7 @@ class PDFiuhApp {
     console.log(`[Main] Worker Message: ${type}`);
 
     switch (type) {
-      case 'INIT_SUCCESS':
-        this.showHomeScreen();
-        break;
-
-      case 'PDF_LOADED':
+      case 'LOADED':
         this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
         this.setupMainUI(payload.totalPages, payload.outline);
         break;
