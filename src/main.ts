@@ -91,6 +91,7 @@ class PDFiuhApp {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
+      console.log('[Main] Sending LOAD message to worker...');
       this.worker?.postMessage({
         type: 'LOAD',
         payload: { buffer: arrayBuffer }
@@ -129,7 +130,7 @@ class PDFiuhApp {
     switch (type) {
       case 'LOADED':
         this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
-        this.setupMainUI(data.numPages, []);
+        this.setupMainUI(data.payload.totalPages, data.payload.outline || []);
         break;
 
       case 'ERROR':
