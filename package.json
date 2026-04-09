@@ -13,12 +13,10 @@
     "dexie": "^4.0.0",
     "pdfjs-dist": "^4.0.0",
     "pdf-lib": "^1.17.0",
-    "svelte": "^5.0.0",
-    "xfdf-parser": "^1.0.0"
+    "svelte": "^5.0.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
-    "@types/xfdf-parser": "^1.0.0",
     "terser": "^5.46.1",
     "typescript": "^5.6.0",
     "vite": "^5.4.0",
