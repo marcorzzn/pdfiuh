@@ -1,5 +1,5 @@
 import { bus } from '../../core/event-bus';
-import { AnnotationEngine, NormalizedCoord } from '../../annotations/engine';
+import { AnnotationEngine } from '../../annotations/engine';
 import { storage, Annotation } from '../../annotations/storage';
 import type { Tool } from '../components/Toolbar';
 
@@ -16,12 +16,12 @@ class PDFiuhViewer extends HTMLElement {
   private docId = 'demo-doc-123';
   private currentPages = new Map<number, PageElement>();
   private activeTool: Tool = 'select';
+  private pendingRenders = new Map<number, boolean>();
+  private _container: HTMLDivElement | null = null;
 
-  // Drawing state
   private isDrawing = false;
   private currentPathPoints: number[] = [];
 
-  // Constants for A4 Page
   private readonly BASE_WIDTH = 595;
   private readonly BASE_HEIGHT = 842;
 
@@ -57,10 +57,8 @@ class PDFiuhViewer extends HTMLElement {
   }
 
   private updateInteractionMode() {
-    const overlays = this.shadowRoot!.querySelectorAll('svg');
-    overlays.forEach(svg => {
-      // Se siamo in 'select', permettiamo l'interazione con gli elementi SVG (per spostarli/eliminarli)
-      // Altrimenti, l'overlay intercetta tutto per disegnare
+    const overlays = this.shadowRoot?.querySelectorAll('svg');
+    overlays?.forEach(svg => {
       svg.style.pointerEvents = this.activeTool === 'select' ? 'auto' : 'all';
     });
   }
@@ -109,11 +107,7 @@ class PDFiuhViewer extends HTMLElement {
       </style>
       <div class="pages-container" id="pages-container"></div>
     `;
-    this.container = this.shadowRoot!.getElementById('pages-container')!;
-  }
-
-  private get container() {
-    return this.shadowRoot!.getElementById('pages-container')!;
+    this._container = this.shadowRoot!.getElementById('pages-container');
   }
 
   public setDocumentInfo(docId: string, totalPages: number, worker: Worker) {
@@ -121,15 +115,18 @@ class PDFiuhViewer extends HTMLElement {
     this.totalPages = totalPages;
     this.worker = worker;
 
-    // UN SOLO listener per tutte le risposte di rendering
-    this.worker.onmessage = (e) => {
+    this.worker.onmessage = (e: MessageEvent) => {
       const { type, payload } = e.data;
       if (type === 'RENDERED') {
-        const { pageNumber, bitmap } = payload;
+        const { pageNumber, bitmap, width, height } = payload;
+        this.pendingRenders.delete(pageNumber);
         const page = this.currentPages.get(pageNumber);
-        if (page) {
+        if (page && bitmap) {
+          page.canvas.width = width;
+          page.canvas.height = height;
           const ctx = page.canvas.getContext('2d');
-          if (ctx) ctx.drawImage(bitmap, 0, 0);
+          ctx?.drawImage(bitmap, 0, 0);
+          bitmap.close();
           this.loadAnnotations(pageNumber, page.svg);
         }
       }
@@ -139,10 +136,10 @@ class PDFiuhViewer extends HTMLElement {
   }
 
   private updateLayout() {
-    this.container.innerHTML = '';
+    if (!this._container) return;
+    this._container.innerHTML = '';
     this.currentPages.clear();
 
-    // Creiamo i placeholder per tutte le pagine per mantenere lo scroll corretto (Virtualizzazione)
     for (let i = 1; i <= this.totalPages; i++) {
       const wrapper = document.createElement('div');
       wrapper.className = 'page-wrapper';
@@ -154,7 +151,7 @@ class PDFiuhViewer extends HTMLElement {
       wrapper.style.height = `${height}px`;
 
       const canvas = document.createElement('canvas');
-      canvas.width = this.BASE_WIDTH; // Rendering a risoluzione base
+      canvas.width = this.BASE_WIDTH;
       canvas.height = this.BASE_HEIGHT;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
@@ -164,7 +161,7 @@ class PDFiuhViewer extends HTMLElement {
 
       wrapper.appendChild(canvas);
       wrapper.appendChild(svg);
-      this.container.appendChild(wrapper);
+      this._container.appendChild(wrapper);
 
       this.currentPages.set(i, { canvas, svg, container: wrapper });
       this.setupPageEvents(i, svg);
@@ -181,22 +178,17 @@ class PDFiuhViewer extends HTMLElement {
           this.renderPage(pageNum);
         }
       });
-    }, { root: this, threshold: 0.1 });
+    }, { root: this.shadowRoot!, threshold: 0.1 });
 
-    this.container.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
+    this._container?.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
   }
 
-  private async renderPage(pageNum: number) {
-    const page = this.currentPages.get(pageNum);
-    if (!page || !this.worker) return;
-
-    // 1. Richiedi rasterizzazione al worker
+  private renderPage(pageNum: number) {
+    if (!this.worker || this.pendingRenders.has(pageNum)) return;
+    this.pendingRenders.set(pageNum, true);
     this.worker.postMessage({
       type: 'RENDER',
-      payload: {
-        pageNumber: pageNum,
-        scale: 1.0, // Renderizziamo sempre a 1:1 e scaliamo via CSS
-      }
+      payload: { pageNumber: pageNum, scale: this.zoom }
     });
   }
 
@@ -213,16 +205,15 @@ class PDFiuhViewer extends HTMLElement {
         svg.appendChild(path);
       } else if (ann.type === 'highlight' && ann.rect) {
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', ann.rect.x * this.BASE_WIDTH);
-        rect.setAttribute('y', ann.rect.y * this.BASE_HEIGHT);
-        rect.setAttribute('width', ann.rect.w * this.BASE_WIDTH);
-        rect.setAttribute('height', ann.rect.h * this.BASE_HEIGHT);
+        rect.setAttribute('x', (ann.rect.x * this.BASE_WIDTH).toString());
+        rect.setAttribute('y', (ann.rect.y * this.BASE_HEIGHT).toString());
+        rect.setAttribute('width', (ann.rect.w * this.BASE_WIDTH).toString());
+        rect.setAttribute('height', (ann.rect.h * this.BASE_HEIGHT).toString());
         rect.setAttribute('fill', ann.color || 'rgba(255, 255, 0, 0.4)');
         rect.setAttribute('class', 'annotation-path');
         svg.appendChild(rect);
       } else if (ann.type === 'text') {
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        // Assuming text is placed at the first point or a default position if points are missing
         const x = ann.points ? ann.points[0] * this.BASE_WIDTH : 10;
         const y = ann.points ? ann.points[1] * this.BASE_HEIGHT : 20;
         text.setAttribute('x', x.toString());
@@ -244,7 +235,6 @@ class PDFiuhViewer extends HTMLElement {
       const ny = y / this.BASE_HEIGHT;
 
       if (this.activeTool === 'select') {
-        // Implementazione base: seleziona l'annotazione sotto il mouse
         this.handleSelect(e, nx, ny, svg);
         return;
       }
@@ -335,10 +325,10 @@ class PDFiuhViewer extends HTMLElement {
     const height = currentY - startY;
 
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', Math.min(startX, currentX) * this.BASE_WIDTH);
-    rect.setAttribute('y', Math.min(startY, currentY) * this.BASE_HEIGHT);
-    rect.setAttribute('width', Math.abs(width) * this.BASE_WIDTH);
-    rect.setAttribute('height', Math.abs(height) * this.BASE_HEIGHT);
+    rect.setAttribute('x', (Math.min(startX, currentX) * this.BASE_WIDTH).toString());
+    rect.setAttribute('y', (Math.min(startY, currentY) * this.BASE_HEIGHT).toString());
+    rect.setAttribute('width', (Math.abs(width) * this.BASE_WIDTH).toString());
+    rect.setAttribute('height', (Math.abs(height) * this.BASE_HEIGHT).toString());
     rect.setAttribute('fill', 'rgba(255, 255, 0, 0.4)');
     rect.setAttribute('class', 'temp-highlight');
     svg.appendChild(rect);
@@ -353,7 +343,7 @@ class PDFiuhViewer extends HTMLElement {
         type: 'text',
         color: '#61afef',
         text: text,
-        points: [x, y] // Store position in points for rendering
+        points: [x, y]
       };
       await storage.saveAnnotation(this.docId, ann);
       this.loadAnnotations(pageNum, svg);
@@ -379,7 +369,6 @@ class PDFiuhViewer extends HTMLElement {
           shouldDelete = true;
         }
       } else if (ann.type === 'ink' && ann.points) {
-        // For ink, we check if any point is close enough
         for (let i = 0; i < ann.points.length; i += 2) {
           const dx = nx - ann.points[i];
           const dy = ny - ann.points[i + 1];
@@ -398,7 +387,6 @@ class PDFiuhViewer extends HTMLElement {
   }
 
   private handleSelect(e: MouseEvent, nx: number, ny: number, svg: SVGSVGElement) {
-    // Implementazione base: evidenzia l'elemento selezionato
     console.log(`Selecting annotation at ${nx}, ${ny}`);
   }
 

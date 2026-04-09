@@ -5,16 +5,23 @@ export default defineConfig({
   base: '/pdfiuh/',
   plugins: [svelte()],
   worker: {
-    format: 'es'
+    format: 'es',
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js'
+      }
+    }
   },
   build: {
     outDir: 'dist',
-    minify: 'terser', // Massima compressione per l'Atom N455
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
       }
+    },
+    terserOptions: {
+      compress: { drop_console: false, drop_debugger: true }
     }
   }
 });

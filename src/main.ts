@@ -28,7 +28,6 @@ class PDFiuhApp {
   private showHomeScreen() {
     console.log('[Main] Showing Home Screen');
 
-    // Rimuoviamo lo spinner e il testo di boot
     this.bootScreen.innerHTML = `
       <div class="home-container">
         <div class="home-card">
@@ -53,7 +52,6 @@ class PDFiuhApp {
 
     this.bootScreen.classList.add('home-mode');
 
-    // Gestione click per apertura file explorer
     const dropZone = this.bootScreen.querySelector('#drop-zone');
     const fileInput = this.bootScreen.querySelector('#file-input') as HTMLInputElement;
 
@@ -65,7 +63,6 @@ class PDFiuhApp {
         if (file) this.handleFileUpload(file);
       };
 
-      // Gestione Drag & Drop
       dropZone.ondragover = (e) => {
         e.preventDefault();
         dropZone.classList.add('drag-over');
@@ -104,7 +101,6 @@ class PDFiuhApp {
   }
 
   private async registerServiceWorker() {
-
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('./sw.js');
@@ -116,36 +112,28 @@ class PDFiuhApp {
   }
 
   private initWorker() {
-    this.updateStatus('Connessione al motore WASM...');
-
     try {
-      // Utilizziamo l'import ?worker di Vite per la massima compatibilità di bundling
       this.worker = new WorkerConstructor();
-
-
       this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
-      this.worker.onerror = (err) => this.handleCriticalError(`Errore Worker: ${err}`);
-
-      // Poiché il nuovo worker non richiede inizializzazione esplicita, mostriamo subito la Home
+      this.worker.onerror = (err) => this.handleCriticalError(err);
       this.showHomeScreen();
-
     } catch (err) {
       this.handleCriticalError(`Impossibile avviare il Worker: ${err}`);
     }
   }
 
   private handleWorkerMessage(data: any) {
-    const { type, payload } = data;
+    const { type } = data;
     console.log(`[Main] Worker Message: ${type}`);
 
     switch (type) {
       case 'LOADED':
         this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
-        this.setupMainUI(payload.totalPages, payload.outline);
+        this.setupMainUI(data.numPages, []);
         break;
 
       case 'ERROR':
-        this.handleCriticalError(`Errore Motore: ${payload}`);
+        this.handleCriticalError(data.message || data.payload || 'Errore sconosciuto del worker');
         break;
     }
   }
