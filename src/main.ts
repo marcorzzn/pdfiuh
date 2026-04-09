@@ -25,7 +25,86 @@ class PDFiuhApp {
     this.initWorker();
   }
 
+  private showHomeScreen() {
+    console.log('[Main] Showing Home Screen');
+
+    // Rimuoviamo lo spinner e il testo di boot
+    this.bootScreen.innerHTML = `
+      <div class="home-container">
+        <div class="home-card">
+          <div class="home-icon">📄</div>
+          <h1>Benvenuto in pdfiuh</h1>
+          <p>Il tuo lettore PDF ultra-leggero e performante.</p>
+
+          <div id="drop-zone" class="drop-zone">
+            <div class="drop-zone-content">
+              <span class="drop-zone-icon">⬆️</span>
+              <p>Trascina qui il tuo PDF o <span>clicca per selezionarlo</span></p>
+            </div>
+            <input type="file" id="file-input" accept="application/pdf" style="display: none;">
+          </div>
+
+          <div class="home-footer">
+            Sincronizzazione cross-device • Offline-first • Privacy totale
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.bootScreen.classList.add('home-mode');
+
+    // Gestione click per apertura file explorer
+    const dropZone = this.bootScreen.querySelector('#drop-zone');
+    const fileInput = this.bootScreen.querySelector('#file-input') as HTMLInputElement;
+
+    if (dropZone && fileInput) {
+      dropZone.onclick = () => fileInput.click();
+
+      fileInput.onchange = (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) this.handleFileUpload(file);
+      };
+
+      // Gestione Drag & Drop
+      dropZone.ondragover = (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      };
+
+      dropZone.ondragleave = () => {
+        dropZone.classList.remove('drag-over');
+      };
+
+      dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type === 'application/pdf') {
+          this.handleFileUpload(file);
+        } else {
+          alert('Per favore, carica un file PDF valido.');
+        }
+      };
+    }
+  }
+
+  private async handleFileUpload(file: File) {
+    console.log(`[Main] Uploading file: ${file.name} (${file.size} bytes)`);
+    this.updateStatus(`Caricamento di ${file.name}...`);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      this.worker?.postMessage({
+        type: 'LOAD_PDF',
+        payload: { buffer: arrayBuffer }
+      }, [arrayBuffer]);
+    } catch (err) {
+      this.handleCriticalError(`Errore durante la lettura del file: ${err}`);
+    }
+  }
+
   private async registerServiceWorker() {
+
     if ('serviceWorker' in navigator) {
       try {
         await navigator.serviceWorker.register('./sw.js');
@@ -70,7 +149,7 @@ class PDFiuhApp {
 
     switch (type) {
       case 'INIT_SUCCESS':
-        this.updateStatus('Motore Pronto. In attesa di un file PDF...');
+        this.showHomeScreen();
         break;
 
       case 'PDF_LOADED':
