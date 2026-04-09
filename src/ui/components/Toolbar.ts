@@ -39,6 +39,31 @@ class PDFiuhToolbar extends HTMLElement {
     bus.publish('rotate-change');
   }
 
+  private handleFileInput() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        this.loadPDFFile(file);
+      }
+    };
+    input.click();
+  }
+
+  private async loadPDFFile(file: File) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      // Notifichiamo al main thread tramite l'event bus o un metodo diretto
+      // Per ora, pubblichiamo un evento che il main thread ascolterà
+      bus.publish('pdf-file-loaded', { file, arrayBuffer });
+    } catch (err) {
+      console.error('Error loading PDF file:', err);
+      // Potremmo mostrare un errore all'utente qui
+    }
+  }
+
   render() {
     this.shadowRoot!.innerHTML = `
       <style>

@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
   base: './',
-  // Rimosso ogni plugin di framework. Solo build pura di TS/JS.
-  plugins: [],
+  plugins: [svelte()],
   worker: {
     format: 'es'
   },

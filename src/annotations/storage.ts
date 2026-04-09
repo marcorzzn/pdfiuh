@@ -60,7 +60,14 @@ class AnnotationStore {
         const all = request.result as Annotation[];
         // Filtriamo solo le annotazioni relative a questo documento
         const filtered = all.filter(a => a.id.startsWith(`${docId}_`));
-        resolve(filtered);
+        // Rimuoviamo il docId dall'id per restituire l'annotation originale
+        const result = filtered.map(annotation => {
+          const { id, ...rest } = annotation;
+          // Rimuoviamo il prefisso docId_ dall'id
+          const originalId = id.substring(`${docId}_`.length);
+          return { ...rest, id: originalId };
+        });
+        resolve(result);
       };
     });
   }

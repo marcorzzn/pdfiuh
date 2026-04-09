@@ -1,7 +1,7 @@
 import './ui/components/Toolbar';
 import './ui/components/Sidebar';
 import './ui/components/Viewer';
-import WorkerConstructor from './core/worker?worker';
+import WorkerConstructor from './core/pdf-loader?worker';
 import { bus } from './core/event-bus';
 
 class PDFiuhApp {
