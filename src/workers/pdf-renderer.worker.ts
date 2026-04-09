@@ -33,9 +33,27 @@ self.onmessage = async (e: MessageEvent) => {
       const loadingTask = pdfjsLib.getDocument({ data });
       pdfDoc = await loadingTask.promise;
 
+      // Estrazione outline
+      const outlineItems = await pdfDoc.getOutline();
+      const extractOutlineItems = (items: any[]): any[] => {
+        return items.map(item => ({
+          title: item.title,
+          page: item.dest ? pdfDoc.getPageIndex(item.dest[0]) + 1 : 0,
+          items: extractOutlineItems(item.items || [])
+        }));
+      };
+      const outline = extractOutlineItems(outlineItems);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fp = (pdfDoc as any).fingerprints?.[0] ?? '';
-      self.postMessage({ type: 'LOADED', numPages: pdfDoc.numPages, fingerprint: fp });
+      self.postMessage({
+        type: 'LOADED',
+        payload: {
+          totalPages: pdfDoc.numPages,
+          outline: outline,
+          fingerprint: fp
+        }
+      });
     } catch (error) {
       self.postMessage({ type: 'ERROR', message: (error as Error).message });
     }
@@ -90,10 +108,12 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage(
         {
           type: 'RENDERED',
-          pageNumber,
-          bitmap,
-          width: Math.ceil(viewport.width),
-          height: Math.ceil(viewport.height)
+          payload: {
+            pageNumber,
+            bitmap,
+            width: Math.ceil(viewport.width),
+            height: Math.ceil(viewport.height)
+          }
         },
         [bitmap]
       );
