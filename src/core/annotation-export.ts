@@ -51,7 +51,7 @@ export function toXFDF(annotations: AnnotationExport[], docId: string): string {
     } else if (ann.type === 'ink' && ann.data.paths) {
       // Per l'inchiostro, possiamo aggiungere punti come elementi separati
       // Tuttavia, XFDF standard non supporta direttamente l'inchiostro complesso
-      # No standard way to represent complex ink in XFDF, so we'll store as custom data
+      // No standard way to represent complex ink in XFDF, so we'll store as custom data
       xml += `<!-- Ink data: ${JSON.stringify(ann.data.paths)} -->`;
     }
 

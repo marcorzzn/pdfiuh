@@ -16,7 +16,7 @@ describe('XFDF Export', () => {
     const xml = toXFDF(annotations, 'test');
     expect(xml).toContain('<?xml version="1.0"');
     expect(xml).toContain('page="1"');
-    expect(xml).toContain('type="highlight"');
+    expect(xml).toContain('subtype="Highlight"');
   });
 
   it('should parse XFDF back to annotations', () => {
