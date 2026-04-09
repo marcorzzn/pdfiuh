@@ -70,8 +70,7 @@ class PDFiuhApp {
 
     switch (type) {
       case 'INIT_SUCCESS':
-        this.updateStatus('Motore Pronto. Caricamento Documento...');
-        this.loadDemoPDF();
+        this.updateStatus('Motore Pronto. In attesa di un file PDF...');
         break;
 
       case 'PDF_LOADED':
@@ -83,15 +82,6 @@ class PDFiuhApp {
         this.handleCriticalError(`Errore Motore: ${payload}`);
         break;
     }
-  }
-
-  private loadDemoPDF() {
-    console.log('[Main] Loading demo PDF...');
-    const mockBuffer = new ArrayBuffer(1024);
-    this.worker?.postMessage({
-      type: 'LOAD_PDF',
-      payload: { buffer: mockBuffer }
-    }, [mockBuffer]);
   }
 
   private setupMainUI(totalPages: number, outline: any[]) {
