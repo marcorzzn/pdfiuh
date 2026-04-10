@@ -107,7 +107,7 @@ class PDFiuhViewer extends HTMLElement {
       </style>
       <div class="pages-container" id="pages-container"></div>
     `;
-    this._container = this.shadowRoot!.getElementById('pages-container');
+    this._container = this.shadowRoot!.getElementById('pages-container') as HTMLDivElement | null;
   }
 
   public setDocumentInfo(docId: string, totalPages: number, worker: Worker) {
@@ -173,12 +173,13 @@ class PDFiuhViewer extends HTMLElement {
   private setupIntersectionObserver() {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        const pageNum = parseInt(entry.target.dataset.page!);
+        const target = entry.target as HTMLElement;
+        const pageNum = parseInt(target.dataset.page || '1');
         if (entry.isIntersecting) {
           this.renderPage(pageNum);
         }
       });
-    }, { root: this.shadowRoot!, threshold: 0.1 });
+    }, { root: this.shadowRoot! as unknown as Element, threshold: 0.1 });
 
     this._container?.querySelectorAll('.page-wrapper').forEach(el => observer.observe(el));
   }
@@ -277,8 +278,8 @@ class PDFiuhViewer extends HTMLElement {
       if (!this.isDrawing) return;
       this.isDrawing = false;
 
-      const ann: Annotation = {
-        id: Math.random().toString(36).substr(2, 9),
+      const ann: Omit<Annotation, 'docId'> = {
+        id: crypto.randomUUID(),
         page: pageNum,
         type: this.activeTool as any,
         color: this.activeTool === 'highlight' ? '#ffff00' : '#61afef',
@@ -287,7 +288,7 @@ class PDFiuhViewer extends HTMLElement {
         text: this.activeTool === 'text' ? 'Nuova nota' : undefined
       };
 
-      await storage.saveAnnotation(this.docId, ann);
+      await storage.saveAnnotation(this.docId, ann as Annotation);
       this.loadAnnotations(pageNum, svg);
     });
   }
@@ -337,21 +338,22 @@ class PDFiuhViewer extends HTMLElement {
   private async handleTextAnnotation(pageNum: number, x: number, y: number, svg: SVGSVGElement) {
     const text = prompt('Inserisci il testo della nota:');
     if (text) {
-      const ann: Annotation = {
-        id: Math.random().toString(36).substr(2, 9),
+      const ann: Omit<Annotation, 'docId'> = {
+        id: crypto.randomUUID(),
         page: pageNum,
         type: 'text',
         color: '#61afef',
         text: text,
         points: [x, y]
       };
-      await storage.saveAnnotation(this.docId, ann);
+      await storage.saveAnnotation(this.docId, ann as Annotation);
       this.loadAnnotations(pageNum, svg);
     }
   }
 
   private async handleErase(nx: number, ny: number, svg: SVGSVGElement) {
-    const pageNum = parseInt(svg.closest('.page-wrapper')?.dataset.page || '0');
+    const wrapper = svg.closest('.page-wrapper') as HTMLElement;
+    const pageNum = parseInt(wrapper?.dataset.page || '0');
     const annots = await storage.loadAnnotations(this.docId);
     const pageAnnots = annots.filter(a => a.page === pageNum);
 

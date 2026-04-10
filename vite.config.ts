@@ -4,6 +4,10 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 export default defineConfig({
   base: '/pdfiuh/',
   plugins: [svelte()],
+  optimizeDeps: {
+    // Evita che Vite pre-bundle PDF.js (non funziona bene con i worker interni)
+    exclude: ['pdfjs-dist']
+  },
   worker: {
     format: 'es',
     rollupOptions: {
@@ -17,7 +21,10 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        // Separa PDF.js in chunk dedicato per performance
+        manualChunks: {
+          pdfjs: ['pdfjs-dist']
+        }
       }
     },
     terserOptions: {

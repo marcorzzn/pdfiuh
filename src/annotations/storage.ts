@@ -1,10 +1,13 @@
 /**
  * pdfiuh Annotation Storage
- * Gestisce la persistenza delle annotazioni in IndexedDB.
+ * Gestisce la persistenza delle annotazioni in IndexedDB usando Dexie.js.
  */
+
+import Dexie, { type Table } from 'dexie';
 
 export interface Annotation {
   id: string;
+  docId: string; // campo esplicito per il documento
   page: number;
   type: 'ink' | 'highlight' | 'text';
   color: string;
@@ -14,70 +17,31 @@ export interface Annotation {
   rect?: { x: number; y: number; w: number; h: number }; // Coordinate normalizzate
 }
 
-class AnnotationStore {
-  private dbName = 'pdfiuh_annotations';
-  private storeName = 'annotations';
-  private db: IDBDatabase | null = null;
+class PdfiuhDB extends Dexie {
+  annotations!: Table<Annotation>;
 
-  async init() {
-    return new Promise<void>((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
-
-      request.onupgradeneeded = (e) => {
-        const db = (e.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName, { keyPath: 'id' });
-        }
-      };
-
-      request.onsuccess = (e) => {
-        this.db = (e.target as IDBOpenDBRequest).result;
-        resolve();
-      };
-
-      request.onerror = () => reject(new Error('Failed to open IndexedDB'));
+  constructor() {
+    super('pdfiuh_db');
+    this.version(1).stores({
+      annotations: 'id, docId, page' // id è la chiave primaria
     });
-  }
-
-  async saveAnnotation(docId: string, annotation: Annotation) {
-    if (!this.db) await this.init();
-    const tx = this.db!.transaction(this.storeName, 'readwrite');
-    const store = tx.objectStore(this.storeName);
-
-    // Usiamo un id composto docId + annotationId
-    const compositeId = `${docId}_${annotation.id}`;
-    await store.put({ ...annotation, id: compositeId });
-  }
-
-  async loadAnnotations(docId: string): Promise<Annotation[]> {
-    if (!this.db) await this.init();
-    return new Promise((resolve) => {
-      const tx = this.db!.transaction(this.storeName, 'readonly');
-      const store = tx.objectStore(this.storeName);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        const all = request.result as Annotation[];
-        // Filtriamo solo le annotazioni relative a questo documento
-        const filtered = all.filter(a => a.id.startsWith(`${docId}_`));
-        // Rimuoviamo il docId dall'id per restituire l'annotation originale
-        const result = filtered.map(annotation => {
-          const { id, ...rest } = annotation;
-          // Rimuoviamo il prefisso docId_ dall'id
-          const originalId = id.substring(`${docId}_`.length);
-          return { ...rest, id: originalId };
-        });
-        resolve(result);
-      };
-    });
-  }
-
-  async deleteAnnotation(docId: string, annotationId: string) {
-    if (!this.db) await this.init();
-    const tx = this.db!.transaction(this.storeName, 'readwrite');
-    const store = tx.objectStore(this.storeName);
-    await store.delete(`${docId}_${annotationId}`);
   }
 }
 
-export const storage = new AnnotationStore();
+const db = new PdfiuhDB();
+
+export const storage = {
+  async saveAnnotation(docId: string, annotation: Annotation) {
+    await db.annotations.put({ ...annotation, docId });
+  },
+
+  async loadAnnotations(docId: string): Promise<Annotation[]> {
+    return db.annotations.where('docId').equals(docId).toArray();
+  },
+
+  async deleteAnnotation(docId: string, annotationId: string) {
+    await db.annotations
+      .where({ id: annotationId, docId })
+      .delete();
+  }
+};
