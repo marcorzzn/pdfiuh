@@ -12,7 +12,8 @@ class PDFiuhApp {
   private appContainer: HTMLElement;
   private viewerComponent: any;
   private sidebarComponent: any;
-  private currentDocId = 'demo-doc-123';
+  private currentDocId = '';
+  private fileName = '';
 
   constructor() {
     this.bootStatus = document.getElementById('boot-status')!;
@@ -20,75 +21,42 @@ class PDFiuhApp {
     this.appContainer = document.getElementById('viewer-container')!;
 
     console.log('[Main] App started. Initializing...');
-    this.updateStatus('Avvio sistema...');
 
     this.registerServiceWorker();
     this.initWorker();
+
+    bus.subscribe('pdf-file-loaded', (data: any) => {
+        this.handleFileUpload(data.file, data.arrayBuffer);
+    });
   }
 
   private showHomeScreen() {
     console.log('[Main] Showing Home Screen');
 
     this.bootScreen.innerHTML = `
-      <div class="home-container">
-        <div class="home-card">
-          <div class="logo-mark">
-            <svg viewBox="0 0 48 48" width="48" height="48">
-              <defs>
-                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style="stop-color:#61afef;stop-opacity:1" />
-                  <stop offset="100%" style="stop-color:#4d9fdf;stop-opacity:1" />
-                </linearGradient>
-              </defs>
-              <rect x="8" y="6" width="32" height="36" rx="4" fill="none" stroke="url(#logoGrad)" stroke-width="2"/>
-              <line x1="14" y1="14" x2="34" y2="14" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round"/>
-              <line x1="14" y1="22" x2="34" y2="22" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
-              <line x1="14" y1="30" x2="28" y2="30" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
-            </svg>
-          </div>
-          <h1>pdfiuh</h1>
-          <p class="tagline">PDF reader moderno e minimalista</p>
-
-          <div id="drop-zone" class="drop-zone">
-            <div class="drop-zone-content">
-              <svg class="upload-icon" viewBox="0 0 24 24" width="32" height="32">
-                <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-                <path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.5"/>
-              </svg>
-              <p>Trascina un file PDF oppure <span>clicca per cercare</span></p>
-            </div>
-            <input type="file" id="file-input" accept="application/pdf" style="display: none;">
-          </div>
-
-          <div class="features">
-            <div class="feature-item">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              <span>Offline-first</span>
-            </div>
-            <div class="feature-item">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-              <span>Privacy totale</span>
-            </div>
-            <div class="feature-item">
-              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
-              <span>Ultra veloce</span>
-            </div>
-          </div>
+        <div class="upload-box" id="upload-box">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Trascina un file PDF oppure clicca</div>
+            <div class="upload-subtext">Offline-first • Privacy totale • Ultra veloce</div>
+            <input type="file" id="file-input" accept=".pdf" style="display: none;">
         </div>
-      </div>
+        <div class="spinner"></div>
+        <div id="boot-status"></div>
     `;
+    this.bootStatus = this.bootScreen.querySelector('#boot-status')!;
 
-    this.bootScreen.classList.add('home-mode');
-
-    const dropZone = this.bootScreen.querySelector('#drop-zone') as HTMLElement;
+    const dropZone = this.bootScreen.querySelector('#upload-box') as HTMLElement;
     const fileInput = this.bootScreen.querySelector('#file-input') as HTMLInputElement;
 
     if (dropZone && fileInput) {
       dropZone.onclick = () => fileInput.click();
 
-      fileInput.onchange = (e: Event) => {
+      fileInput.onchange = async (e: Event) => {
         const file = (e.target as HTMLInputElement).files?.[0];
-        if (file) this.handleFileUpload(file);
+        if (file) {
+            const arrayBuffer = await file.arrayBuffer();
+            this.handleFileUpload(file, arrayBuffer);
+        }
       };
 
       dropZone.ondragover = (e: DragEvent) => {
@@ -100,12 +68,13 @@ class PDFiuhApp {
         dropZone.classList.remove('drag-over');
       };
 
-      dropZone.ondrop = (e: DragEvent) => {
+      dropZone.ondrop = async (e: DragEvent) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
         const file = e.dataTransfer?.files?.[0];
         if (file && file.type === 'application/pdf') {
-          this.handleFileUpload(file);
+          const arrayBuffer = await file.arrayBuffer();
+          this.handleFileUpload(file, arrayBuffer);
         } else {
           alert('Per favore, carica un file PDF valido.');
         }
@@ -113,23 +82,21 @@ class PDFiuhApp {
     }
   }
 
-  private async handleFileUpload(file: File) {
+  private async handleFileUpload(file: File, arrayBuffer: ArrayBuffer) {
+    this.fileName = file.name;
+    this.currentDocId = `doc_${Date.now()}`;
     console.log(`[Main] Uploading file: ${file.name} (${file.size} bytes)`);
+
+    this.bootScreen.classList.add('loading');
     this.updateStatus(`Caricamento di ${file.name}...`);
 
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      console.log('[Main] File read successfully, sending to worker...');
-      
-      // Creiamo una copia del buffer per il transfer
       const bufferCopy = arrayBuffer.slice(0);
       
       this.worker?.postMessage({
         type: 'LOAD',
         payload: { buffer: bufferCopy }
       }, [bufferCopy]);
-      
-      console.log('[Main] Message sent to worker, waiting for response...');
     } catch (err) {
       console.error('[Main] Error reading file:', err);
       this.handleCriticalError(`Errore durante la lettura del file: ${err}`);
@@ -139,9 +106,8 @@ class PDFiuhApp {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        // Registriamo il SW con path assoluto che include il base path di GitHub Pages
         await navigator.serviceWorker.register('/pdfiuh/sw.js');
-        console.log('[Main] Service Worker registered at /pdfiuh/sw.js');
+        console.log('[Main] Service Worker registered');
       } catch (err) {
         console.warn('[Main] SW registration failed:', err);
       }
@@ -159,7 +125,7 @@ class PDFiuhApp {
     }
   }
 
-  private handleWorkerMessage(data: any) {
+    private handleWorkerMessage(data: any) {
     const { type } = data;
     console.log(`[Main] Worker Message: ${type}`);
 
@@ -169,22 +135,45 @@ class PDFiuhApp {
         this.setupMainUI(data.payload.totalPages, data.payload.outline || []);
         break;
 
+      case 'RENDERED':
+        if (data.payload.isThumbnail) {
+           bus.publish('thumbnail-rendered', data.payload);
+        } else {
+           bus.publish('page-rendered', data.payload);
+        }
+        break;
+
+      case 'TEXT_CONTENT':
+        bus.publish('text-content', data.payload);
+        break;
+
       case 'ERROR':
         this.handleCriticalError(data.message || data.payload || 'Errore sconosciuto del worker');
         break;
     }
   }
 
+
   private setupMainUI(totalPages: number, outline: any[]) {
     console.log('[Main] Setting up UI...');
     this.appContainer.innerHTML = '';
     this.appContainer.className = 'pdfiuh-app';
-    this.appContainer.style.display = 'grid';
+    this.appContainer.style.display = 'flex';
 
     this.appContainer.innerHTML = `
       <pdfiuh-toolbar></pdfiuh-toolbar>
-      <pdfiuh-sidebar id="main-sidebar"></pdfiuh-sidebar>
-      <pdfiuh-viewer id="main-viewer"></pdfiuh-viewer>
+
+    <!-- Search Panel -->
+    <div class="search-panel" id="searchPanel" style="display: none; position: absolute; top: 60px; right: 20px; background: var(--toolbar-bg); border: 1px solid var(--border-color); border-radius: 4px; padding: 16px; box-shadow: var(--shadow); z-index: 100; min-width: 300px;">
+        <h3>Cerca nel documento</h3>
+        <input type="text" class="search-input" id="searchInput" placeholder="Inserisci testo da cercare..." style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 8px;">
+        <div class="search-results" id="searchResults" style="max-height: 200px; overflow-y: auto;"></div>
+    </div>
+
+      <div class="main-container">
+        <pdfiuh-sidebar id="main-sidebar"></pdfiuh-sidebar>
+        <pdfiuh-viewer id="main-viewer"></pdfiuh-viewer>
+      </div>
     `;
 
     this.sidebarComponent = document.getElementById('main-sidebar');
@@ -197,26 +186,119 @@ class PDFiuhApp {
       this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
     }
 
+    bus.publish('pdf-info', { pageCount: totalPages, fileName: this.fileName, worker: this.worker });
+
+
+
+    bus.subscribe('toggle-search', () => {
+        const panel = document.getElementById('searchPanel');
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+
+    const searchInput = document.getElementById('searchInput');
+    let pageTexts = new Map<number, string>();
+    let searchResults: {page: number, text: string}[] = [];
+
+    bus.subscribe('text-content', (payload: any) => {
+        pageTexts.set(payload.pageNumber, payload.text);
+
+        // if currently searching, update results
+        const val = (searchInput as HTMLInputElement)?.value;
+        if (val) performSearch(val);
+    });
+
+    const performSearch = (val: string) => {
+        const results = document.getElementById('searchResults');
+        if (!results) return;
+
+        results.innerHTML = '';
+        let found = false;
+        pageTexts.forEach((text, page) => {
+            if (text.toLowerCase().includes(val.toLowerCase())) {
+                found = true;
+                const snippetIdx = text.toLowerCase().indexOf(val.toLowerCase());
+                const start = Math.max(0, snippetIdx - 20);
+                const end = Math.min(text.length, snippetIdx + val.length + 20);
+                const snippet = text.substring(start, end);
+
+                const item = document.createElement('div');
+                item.style.cssText = "padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);";
+                item.innerHTML = `<strong>Pagina ${page}</strong><br><small>...${snippet}...</small>`;
+                item.onclick = () => {
+                    bus.publish('goto-page', page);
+                    document.getElementById('searchPanel')!.style.display = 'none';
+                };
+                results.appendChild(item);
+            }
+        });
+
+        if (!found) {
+            results.innerHTML = '<div style="padding: 8px;">Nessun risultato</div>';
+        }
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const val = (e.target as HTMLInputElement).value;
+            if (val && this.worker) {
+                // Request text for all pages if not loaded
+                for(let i=1; i<=totalPages; i++) {
+                    if (!pageTexts.has(i)) {
+                        this.worker.postMessage({ type: 'GET_TEXT', payload: { pageNumber: i } });
+                    }
+                }
+                performSearch(val);
+            } else {
+                const results = document.getElementById('searchResults');
+                if (results) results.innerHTML = '';
+            }
+        });
+    }
+
+
+    let currentPageForRead = 1;
+    bus.subscribe('page-changed', (page: number) => {
+        currentPageForRead = page;
+    });
+
+    bus.subscribe('read-aloud', () => {
+        if (this.worker) {
+            this.worker.postMessage({ type: 'GET_TEXT', payload: { pageNumber: currentPageForRead } });
+
+            const reader = (payload: any) => {
+                if (payload.pageNumber === currentPageForRead) {
+                    if (window.speechSynthesis.speaking) {
+                        window.speechSynthesis.cancel();
+                        return;
+                    }
+                    const utterance = new SpeechSynthesisUtterance(payload.text);
+                    utterance.lang = 'it-IT';
+                    window.speechSynthesis.speak(utterance);
+                }
+            };
+            bus.subscribe('text-content', reader);
+        }
+    });
+
     this.hideBootScreen();
   }
 
   private updateStatus(text: string) {
-    console.log(`[Status] ${text}`);
-    this.bootStatus.innerText = text;
+    if (this.bootStatus) {
+        this.bootStatus.innerText = text;
+    }
   }
 
   private hideBootScreen() {
-    this.bootScreen.style.opacity = '0';
-    setTimeout(() => {
-      this.bootScreen.style.display = 'none';
-    }, 300);
+    this.bootScreen.classList.add('hidden');
+    this.bootScreen.classList.remove('loading');
   }
 
   private handleCriticalError(err: any) {
     console.error('[CRITICAL ERROR]', err);
-    this.bootStatus.style.color = 'var(--error-color)';
-    this.bootStatus.innerText = `Errore Critico: ${err}`;
-    this.bootScreen.style.opacity = '1';
+    this.updateStatus(`Errore Critico: ${err}`);
   }
 }
 
