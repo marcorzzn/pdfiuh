@@ -5,8 +5,8 @@ export default defineConfig({
   base: '/pdfiuh/',
   plugins: [svelte()],
   optimizeDeps: {
-    // Evita che Vite pre-bundle PDF.js (non funziona bene con i worker interni)
-    exclude: ['pdfjs-dist']
+    // PDF.js deve essere esplicitamente incluso in optimizeDeps per il bundling corretto in Vite
+    include: ['pdfjs-dist']
   },
   worker: {
     format: 'es',

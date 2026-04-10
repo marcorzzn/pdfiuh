@@ -1,12 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 // FIX BUG #1 + #2: PDF.js v4 richiede workerSrc esplicito.
 // disableWorker non esiste in v4. workerPort: self crashava PDF.js.
 // Vite risolve questo URL al build time e include pdf.worker.mjs nel bundle.
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).href;
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']> | null = null;
 type PageType = Awaited<ReturnType<NonNullable<typeof pdfDoc>['getPage']>>;
