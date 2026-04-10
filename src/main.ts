@@ -1,3 +1,4 @@
+import './ui/styles.css';
 import './ui/components/Toolbar';
 import './ui/components/Sidebar';
 import './ui/components/Viewer';
@@ -52,18 +53,18 @@ class PDFiuhApp {
 
     this.bootScreen.classList.add('home-mode');
 
-    const dropZone = this.bootScreen.querySelector('#drop-zone');
+    const dropZone = this.bootScreen.querySelector('#drop-zone') as HTMLElement;
     const fileInput = this.bootScreen.querySelector('#file-input') as HTMLInputElement;
 
     if (dropZone && fileInput) {
       dropZone.onclick = () => fileInput.click();
 
-      fileInput.onchange = (e) => {
+      fileInput.onchange = (e: Event) => {
         const file = (e.target as HTMLInputElement).files?.[0];
         if (file) this.handleFileUpload(file);
       };
 
-      dropZone.ondragover = (e) => {
+      dropZone.ondragover = (e: DragEvent) => {
         e.preventDefault();
         dropZone.classList.add('drag-over');
       };
@@ -72,10 +73,10 @@ class PDFiuhApp {
         dropZone.classList.remove('drag-over');
       };
 
-      dropZone.ondrop = (e) => {
+      dropZone.ondrop = (e: DragEvent) => {
         e.preventDefault();
         dropZone.classList.remove('drag-over');
-        const file = e.dataTransfer.files?.[0];
+        const file = e.dataTransfer?.files?.[0];
         if (file && file.type === 'application/pdf') {
           this.handleFileUpload(file);
         } else {
@@ -104,7 +105,7 @@ class PDFiuhApp {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('./sw.js');
+        await navigator.serviceWorker.register('/pdfiuh/sw.js', { scope: '/pdfiuh/' });
         console.log('[Main] Service Worker registered.');
       } catch (err) {
         console.warn('[Main] SW registration failed:', err);

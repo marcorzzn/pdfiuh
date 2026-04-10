@@ -9,7 +9,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).href;
 
 let pdfDoc: Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']> | null = null;
-const pageCache = new Map<number, { page: ReturnType<typeof pdfDoc.getPage> extends Promise<infer T> ? T : never }>();
+type PageType = Awaited<ReturnType<NonNullable<typeof pdfDoc>['getPage']>>;
+const pageCache = new Map<number, { page: PageType }>();
 let maxPool = 3;
 
 self.onmessage = async (e: MessageEvent) => {
@@ -35,14 +36,18 @@ self.onmessage = async (e: MessageEvent) => {
 
       // Estrazione outline
       const outlineItems = await pdfDoc.getOutline();
-      const extractOutlineItems = (items: any[]): any[] => {
-        return items.map(item => ({
+      
+      const extractOutlineItems = async (items: any[]): Promise<any[]> => {
+        return Promise.all(items.map(async item => ({
           title: item.title,
-          page: item.dest ? pdfDoc.getPageIndex(item.dest[0]) + 1 : 0,
-          items: extractOutlineItems(item.items || [])
-        }));
+          page: item.dest
+            ? (await pdfDoc!.getPageIndex(item.dest[0]).catch(() => 0)) + 1
+            : 0,
+          items: await extractOutlineItems(item.items ?? [])
+        })));
       };
-      const outline = extractOutlineItems(outlineItems);
+      
+      const outline = outlineItems ? await extractOutlineItems(outlineItems) : [];
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fp = (pdfDoc as any).fingerprints?.[0] ?? '';

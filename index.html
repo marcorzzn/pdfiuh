@@ -4,21 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>pdfiuh - Professional PDF Reader</title>
-  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="icon" href="./assets/icon-192.png">
   <link rel="manifest" href="./manifest.webmanifest">
   <meta name="theme-color" content="#61afef">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="./src/ui/styles.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div id="boot-screen">
     <div class="spinner"></div>
     <div id="boot-status">Inizializzazione pdfiuh...</div>
   </div>
-
+  
   <div id="viewer-container"></div>
-
+  
   <script type="module" src="./src/main.ts"></script>
 </body>
 </html>
