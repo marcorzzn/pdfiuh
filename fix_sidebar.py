@@ -1,4 +1,9 @@
-import { bus } from '../../core/event-bus';
+import re
+
+with open('src/ui/components/Sidebar.ts', 'r') as f:
+    content = f.read()
+
+new_sidebar = """import { bus } from '../../core/event-bus';
 
 class PDFiuhSidebar extends HTMLElement {
   private isOpen = false;
@@ -13,13 +18,6 @@ class PDFiuhSidebar extends HTMLElement {
   connectedCallback() {
     this.render();
     bus.subscribe('toggle-sidebar', () => this.toggle());
-        bus.subscribe('annotations-updated', () => {
-        // Just a stub for now, in a real app we'd load annotations from storage
-        const list = this.shadowRoot!.getElementById('annotationsList');
-        if (list) {
-            list.innerHTML = '<div class="annotation-item">Annotazione aggiornata</div>';
-        }
-    });
 
     bus.subscribe('pdf-info', (info: any) => {
         this.totalPages = info.pageCount;
@@ -149,3 +147,7 @@ class PDFiuhSidebar extends HTMLElement {
 
 customElements.define('pdfiuh-sidebar', PDFiuhSidebar);
 export default PDFiuhSidebar;
+"""
+
+with open('src/ui/components/Sidebar.ts', 'w') as f:
+    f.write(new_sidebar)

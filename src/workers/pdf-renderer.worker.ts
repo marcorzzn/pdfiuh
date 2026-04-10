@@ -79,7 +79,7 @@ self.onmessage = async (e: MessageEvent) => {
   }
 
   if (type === 'RENDER') {
-    const { pageNumber, scale } = payload;
+    const { pageNumber, scale, isThumbnail } = payload;
 
     if (!pdfDoc) {
       self.postMessage({ type: 'ERROR', message: 'PDF non caricato' });
@@ -130,13 +130,35 @@ self.onmessage = async (e: MessageEvent) => {
             pageNumber,
             bitmap,
             width: Math.ceil(viewport.width),
-            height: Math.ceil(viewport.height)
+            height: Math.ceil(viewport.height),
+            isThumbnail
           }
         },
         [bitmap]
       );
     } catch (error) {
       self.postMessage({ type: 'ERROR', message: (error as Error).message });
+    }
+    return;
+  }
+
+
+  if (type === 'GET_TEXT') {
+    const { pageNumber } = payload;
+    if (!pdfDoc) return;
+    try {
+      const page = await pdfDoc.getPage(pageNumber);
+      const textContent = await page.getTextContent();
+      const text = textContent.items.map((item: any) => item.str).join(' ');
+      self.postMessage({
+        type: 'TEXT_CONTENT',
+        payload: {
+          pageNumber,
+          text
+        }
+      });
+    } catch (e) {
+      console.error(e);
     }
     return;
   }
