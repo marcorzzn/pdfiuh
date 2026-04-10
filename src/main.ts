@@ -32,20 +32,47 @@ class PDFiuhApp {
     this.bootScreen.innerHTML = `
       <div class="home-container">
         <div class="home-card">
-          <div class="home-icon">📄</div>
-          <h1>Benvenuto in pdfiuh</h1>
-          <p>Il tuo lettore PDF ultra-leggero e performante.</p>
+          <div class="logo-mark">
+            <svg viewBox="0 0 48 48" width="48" height="48">
+              <defs>
+                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#61afef;stop-opacity:1" />
+                  <stop offset="100%" style="stop-color:#4d9fdf;stop-opacity:1" />
+                </linearGradient>
+              </defs>
+              <rect x="8" y="6" width="32" height="36" rx="4" fill="none" stroke="url(#logoGrad)" stroke-width="2"/>
+              <line x1="14" y1="14" x2="34" y2="14" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round"/>
+              <line x1="14" y1="22" x2="34" y2="22" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+              <line x1="14" y1="30" x2="28" y2="30" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+            </svg>
+          </div>
+          <h1>pdfiuh</h1>
+          <p class="tagline">PDF reader moderno e minimalista</p>
 
           <div id="drop-zone" class="drop-zone">
             <div class="drop-zone-content">
-              <span class="drop-zone-icon">⬆️</span>
-              <p>Trascina qui il tuo PDF o <span>clicca per selezionarlo</span></p>
+              <svg class="upload-icon" viewBox="0 0 24 24" width="32" height="32">
+                <path d="M12 16V4m0 0l-4 4m4-4l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M20 16v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.5"/>
+              </svg>
+              <p>Trascina un file PDF oppure <span>clicca per cercare</span></p>
             </div>
             <input type="file" id="file-input" accept="application/pdf" style="display: none;">
           </div>
 
-          <div class="home-footer">
-            Sincronizzazione cross-device • Offline-first • Privacy totale
+          <div class="features">
+            <div class="feature-item">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>Offline-first</span>
+            </div>
+            <div class="feature-item">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+              <span>Privacy totale</span>
+            </div>
+            <div class="feature-item">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+              <span>Ultra veloce</span>
+            </div>
           </div>
         </div>
       </div>
@@ -92,12 +119,19 @@ class PDFiuhApp {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      console.log('[Main] Sending LOAD message to worker...');
+      console.log('[Main] File read successfully, sending to worker...');
+      
+      // Creiamo una copia del buffer per il transfer
+      const bufferCopy = arrayBuffer.slice(0);
+      
       this.worker?.postMessage({
         type: 'LOAD',
-        payload: { buffer: arrayBuffer }
-      }, [arrayBuffer]);
+        payload: { buffer: bufferCopy }
+      }, [bufferCopy]);
+      
+      console.log('[Main] Message sent to worker, waiting for response...');
     } catch (err) {
+      console.error('[Main] Error reading file:', err);
       this.handleCriticalError(`Errore durante la lettura del file: ${err}`);
     }
   }
@@ -105,8 +139,9 @@ class PDFiuhApp {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/pdfiuh/sw.js', { scope: '/pdfiuh/' });
-        console.log('[Main] Service Worker registered.');
+        // Registriamo il SW con path assoluto che include il base path di GitHub Pages
+        await navigator.serviceWorker.register('/pdfiuh/sw.js');
+        console.log('[Main] Service Worker registered at /pdfiuh/sw.js');
       } catch (err) {
         console.warn('[Main] SW registration failed:', err);
       }

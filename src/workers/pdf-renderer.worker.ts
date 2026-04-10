@@ -15,8 +15,10 @@ let maxPool = 3;
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, payload } = e.data;
+  console.log(`[Worker] Received message type: ${type}`);
 
   if (type === 'LOAD') {
+    console.log('[Worker] Starting LOAD process...');
     try {
       // Cleanup precedente se esiste
       if (pdfDoc) {
@@ -29,28 +31,39 @@ self.onmessage = async (e: MessageEvent) => {
       }
 
       const data = new Uint8Array(payload.buffer);
+      console.log(`[Worker] PDF data size: ${data.length} bytes`);
+      
       // FIX BUG #2: rimosso workerPort: self che crashava PDF.js.
       // PDF.js spawna il suo worker usando workerSrc sopra.
       const loadingTask = pdfjsLib.getDocument({ data });
+      console.log('[Worker] Loading PDF document...');
       pdfDoc = await loadingTask.promise;
+      console.log(`[Worker] PDF loaded successfully! Pages: ${pdfDoc.numPages}`);
 
       // Estrazione outline
+      console.log('[Worker] Extracting outline...');
       const outlineItems = await pdfDoc.getOutline();
+      console.log(`[Worker] Outline items: ${outlineItems ? outlineItems.length : 0}`);
       
       const extractOutlineItems = async (items: any[]): Promise<any[]> => {
         return Promise.all(items.map(async item => ({
           title: item.title,
           page: item.dest
-            ? (await pdfDoc!.getPageIndex(item.dest[0]).catch(() => 0)) + 1
+            ? (await pdfDoc!.getPageIndex(item.dest[0]).catch((err) => {
+                console.warn('[Worker] getPageIndex error:', err);
+                return 0;
+              })) + 1
             : 0,
           items: await extractOutlineItems(item.items ?? [])
         })));
       };
       
       const outline = outlineItems ? await extractOutlineItems(outlineItems) : [];
+      console.log(`[Worker] Outline extracted: ${outline.length} top-level items`);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fp = (pdfDoc as any).fingerprints?.[0] ?? '';
+      console.log('[Worker] Sending LOADED message back to main thread...');
       self.postMessage({
         type: 'LOADED',
         payload: {
@@ -59,7 +72,9 @@ self.onmessage = async (e: MessageEvent) => {
           fingerprint: fp
         }
       });
+      console.log('[Worker] LOADED message sent.');
     } catch (error) {
+      console.error('[Worker] LOAD error:', error);
       self.postMessage({ type: 'ERROR', message: (error as Error).message });
     }
     return;
