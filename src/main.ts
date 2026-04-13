@@ -2,11 +2,17 @@ import './ui/styles.css';
 import './ui/components/Toolbar';
 import './ui/components/Sidebar';
 import './ui/components/Viewer';
-import WorkerConstructor from './workers/pdf-renderer.worker?worker';
+import WorkerConstructor from './engine/pdf-worker?worker';
+
+import { store } from './state/store';
 import { bus } from './core/event-bus';
+import { detectProfile } from './engine/device-profile';
+import { exportPDF } from './annotations/export';
+import { storage } from './annotations/storage';
 
 class PDFiuhApp {
   private worker: Worker | null = null;
+<<<<<<< HEAD
   private bootStatus: HTMLElement;
   private bootScreen: HTMLElement;
   private appContainer: HTMLElement;
@@ -14,38 +20,127 @@ class PDFiuhApp {
   private sidebarComponent: any;
   private currentDocId = '';
   private fileName = '';
+=======
+  private bootStatus = document.getElementById('boot-status')!;
+  private bootScreen = document.getElementById('boot-screen')!;
+  private appContainer = document.getElementById('viewer-container')!;
+  private activeFile: File | null = null;
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
 
   constructor() {
-    this.bootStatus = document.getElementById('boot-status')!;
-    this.bootScreen = document.getElementById('boot-screen')!;
-    this.appContainer = document.getElementById('viewer-container')!;
+    this.init();
+  }
 
+  private async init() {
     console.log('[Main] App started. Initializing...');
 
+    // 1. Detect hardware profile
+    const profile = detectProfile();
+    store.set('deviceProfile', profile.tier);
+    console.log('[Main] Device profile:', profile.tier);
+
+    // 2. Setup storage
+    this.updateStatus('Inizializzazione database...');
+    // Dexie initializes on first query automatically
+
+    // 3. Register SW
     this.registerServiceWorker();
+<<<<<<< HEAD
     this.initWorker();
 
     bus.subscribe('pdf-file-loaded', (data: any) => {
         this.handleFileUpload(data.file, data.arrayBuffer);
     });
+=======
+
+    // 4. Init Worker
+    this.initWorker(profile.maxPagePool);
+  }
+
+  private initWorker(maxPool: number) {
+    try {
+      this.worker = new WorkerConstructor();
+      this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
+      this.worker.onerror = (err) => this.handleCriticalError(err.message || 'Worker crash');
+
+      this.worker.postMessage({ type: 'SET_MAX_POOL', payload: { maxPool } });
+      this.showHomeScreen();
+
+      this.setupEventBindings();
+    } catch (err) {
+      this.handleCriticalError(`Impossibile avviare il Worker: ${err}`);
+    }
+  }
+
+  private setupEventBindings() {
+    bus.subscribe('open-file', () => this.promptOpenFile());
+    
+    bus.subscribe('export-pdf', () => {
+      this.worker?.postMessage({ type: 'GET_PDF_BUFFER' });
+    });
+
+    const body = document.body;
+    store.subscribe('theme', (t) => {
+      body.setAttribute('data-theme', t);
+    });
+    // Set initial
+    body.setAttribute('data-theme', store.get('theme'));
+  }
+
+  private promptOpenFile() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) this.handleFileUpload(file);
+    };
+    input.click();
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
   }
 
   private showHomeScreen() {
     console.log('[Main] Showing Home Screen');
 
     this.bootScreen.innerHTML = `
+<<<<<<< HEAD
         <div class="upload-box" id="upload-box">
             <div class="upload-icon">📄</div>
             <div class="upload-text">Trascina un file PDF oppure clicca</div>
             <div class="upload-subtext">Offline-first • Privacy totale • Ultra veloce</div>
             <input type="file" id="file-input" accept=".pdf" style="display: none;">
+=======
+      <div class="home-container">
+        <div class="home-card">
+          <img src="./icons/icon-192.png" alt="pdfiuh" class="home-logo" onerror="this.style.display='none'">
+          <h1>pdfiuh</h1>
+          <p>Il tuo lettore e annotatore PDF web-native.<br/>Veloce, offline e privacy-first.</p>
+
+          <div id="drop-zone" class="drop-zone">
+            <div class="drop-zone-content">
+              <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15V3m0 0L8.5 6.5M12 3l3.5 3.5M2 17l.621 2.485A2 2 0 0 0 4.561 21h14.878a2 2 0 0 0 1.94-1.515L22 17"></path></svg>
+              <p>Trascina qui un file PDF o <a>Scegli file</a></p>
+            </div>
+            <input type="file" id="file-input" accept="application/pdf" class="visually-hidden">
+          </div>
+
+          <div class="home-footer">
+            Tutti i file vengono aperti localmente nel browser. Nessun dato viene inviato ai server.
+          </div>
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
         </div>
         <div class="spinner"></div>
         <div id="boot-status"></div>
     `;
     this.bootStatus = this.bootScreen.querySelector('#boot-status')!;
 
+<<<<<<< HEAD
     const dropZone = this.bootScreen.querySelector('#upload-box') as HTMLElement;
+=======
+    this.bootScreen.classList.remove('hidden');
+
+    const dropZone = this.bootScreen.querySelector('#drop-zone') as HTMLElement;
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
     const fileInput = this.bootScreen.querySelector('#file-input') as HTMLInputElement;
 
     if (dropZone && fileInput) {
@@ -64,11 +159,15 @@ class PDFiuhApp {
         dropZone.classList.add('drag-over');
       };
 
+<<<<<<< HEAD
       dropZone.ondragleave = () => {
         dropZone.classList.remove('drag-over');
       };
 
       dropZone.ondrop = async (e: DragEvent) => {
+=======
+      dropZone.ondrop = (e) => {
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
         e.preventDefault();
         dropZone.classList.remove('drag-over');
         const file = e.dataTransfer?.files?.[0];
@@ -79,9 +178,14 @@ class PDFiuhApp {
           alert('Per favore, carica un file PDF valido.');
         }
       };
+      
+      dropZone.ondragleave = () => {
+        dropZone.classList.remove('drag-over');
+      };
     }
   }
 
+<<<<<<< HEAD
   private async handleFileUpload(file: File, arrayBuffer: ArrayBuffer) {
     this.fileName = file.name;
     this.currentDocId = `doc_${Date.now()}`;
@@ -93,11 +197,31 @@ class PDFiuhApp {
     try {
       const bufferCopy = arrayBuffer.slice(0);
       
+=======
+  private async handleFileUpload(file: File) {
+    this.activeFile = file;
+    store.set('fileName', file.name);
+    
+    // Hash file content or name to generate docId
+    const docId = await this.generateDocId(file.name, file.size);
+    store.set('docId', docId);
+
+    // Show boot loading again
+    this.bootScreen.innerHTML = `
+      <div class="boot-spinner"></div>
+      <div id="boot-status">Caricamento di ${file.name}...</div>
+    `;
+    this.bootStatus = document.getElementById('boot-status')!;
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
       this.worker?.postMessage({
         type: 'LOAD',
         payload: { buffer: bufferCopy }
       }, [bufferCopy]);
     } catch (err) {
+<<<<<<< HEAD
       console.error('[Main] Error reading file:', err);
       this.handleCriticalError(`Errore durante la lettura del file: ${err}`);
     }
@@ -128,11 +252,24 @@ class PDFiuhApp {
     private handleWorkerMessage(data: any) {
     const { type } = data;
     console.log(`[Main] Worker Message: ${type}`);
+=======
+      this.handleCriticalError(`Errore lettura file: ${err}`);
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private handleWorkerMessage(data: { type: string, payload?: any, message?: string }) {
+    const { type, payload, message } = data;
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
 
     switch (type) {
       case 'LOADED':
-        this.updateStatus('Documento Caricato. Costruzione Interfaccia...');
-        this.setupMainUI(data.payload.totalPages, data.payload.outline || []);
+        this.updateStatus('Costruzione interfaccia...');
+        this.setupMainUI(payload.totalPages, payload.outline, payload.pageWidth, payload.pageHeight);
+        break;
+
+      case 'PDF_BUFFER':
+        exportPDF(store.get('docId'), payload.buffer, this.activeFile?.name || 'document.pdf');
         break;
 
       case 'RENDERED':
@@ -148,11 +285,12 @@ class PDFiuhApp {
         break;
 
       case 'ERROR':
-        this.handleCriticalError(data.message || data.payload || 'Errore sconosciuto del worker');
+        this.handleCriticalError(message || 'Errore sconosciuto del worker');
         break;
     }
   }
 
+<<<<<<< HEAD
 
   private setupMainUI(totalPages: number, outline: any[]) {
     console.log('[Main] Setting up UI...');
@@ -160,6 +298,9 @@ class PDFiuhApp {
     this.appContainer.className = 'pdfiuh-app';
     this.appContainer.style.display = 'flex';
 
+=======
+  private setupMainUI(totalPages: number, outline: any[], pageWidth: number, pageHeight: number) {
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
     this.appContainer.innerHTML = `
       <pdfiuh-toolbar></pdfiuh-toolbar>
 
@@ -176,16 +317,19 @@ class PDFiuhApp {
       </div>
     `;
 
-    this.sidebarComponent = document.getElementById('main-sidebar');
-    if (this.sidebarComponent) {
-      this.sidebarComponent.updateToC(outline);
+    const sidebar = document.getElementById('main-sidebar') as any;
+    const viewer = document.getElementById('main-viewer') as any;
+
+    if (sidebar) {
+      sidebar.setWorker(this.worker);
+      sidebar.updateToC(outline || []);
     }
 
-    this.viewerComponent = document.getElementById('main-viewer');
-    if (this.viewerComponent) {
-      this.viewerComponent.setDocumentInfo(this.currentDocId, totalPages, this.worker);
+    if (viewer) {
+      viewer.setDocumentInfo(store.get('docId'), totalPages, this.worker, pageWidth, pageHeight);
     }
 
+<<<<<<< HEAD
     bus.publish('pdf-info', { pageCount: totalPages, fileName: this.fileName, worker: this.worker });
 
 
@@ -307,11 +451,44 @@ function startApp() {
     new PDFiuhApp();
   } catch (err) {
     console.error('App crash during init:', err);
+=======
+    this.appContainer.style.display = 'grid';
+    
+    // Hide boot screen
+    this.bootScreen.classList.add('hidden');
+    store.set('sidebarOpen', store.get('deviceProfile') !== 'low');
+  }
+
+  private async generateDocId(name: string, size: number): Promise<string> {
+    return `doc_${name.replace(/[^a-z0-9]/gi, '_')}_${size}`;
+  }
+
+  private async registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('./sw.js');
+      } catch (err) {
+        console.warn('[Main] SW registration failed:', err);
+      }
+    }
+  }
+
+  private updateStatus(text: string) {
+    if (this.bootStatus) this.bootStatus.innerText = text;
+  }
+
+  private handleCriticalError(err: string) {
+    console.error('[CRITICAL ERROR]', err);
+    if (!this.bootStatus) return;
+    this.bootStatus.style.color = '#e06c75';
+    this.bootStatus.innerText = `Errore Critico: ${err}`;
+    this.bootScreen.classList.remove('hidden');
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
   }
 }
 
 if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', startApp);
+  window.addEventListener('DOMContentLoaded', () => new PDFiuhApp());
 } else {
-  startApp();
+  new PDFiuhApp();
 }

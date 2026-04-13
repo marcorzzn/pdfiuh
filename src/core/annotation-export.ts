@@ -108,7 +108,11 @@ export function parseXFDF(xml: string): AnnotationExport[] {
       const commentNodes = ann.childNodes;
       for (let j = 0; j < commentNodes.length; j++) {
         const node = commentNodes[j];
+<<<<<<< HEAD
         if (node.nodeType === Node.COMMENT_NODE && node.textContent?.trim().startsWith('Ink data:')) {
+=======
+        if (node.nodeType === 8 && node.textContent.trim().startsWith('Ink data:')) {
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
           try {
             const jsonStr = node.textContent.trim().substring('Ink data:'.length).trim();
             paths = JSON.parse(jsonStr);

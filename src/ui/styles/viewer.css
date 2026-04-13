@@ -1,0 +1,383 @@
+/**
+ * pdfiuh — Viewer + Sidebar Styles (Fluent Design)
+ */
+
+/* ==================== SIDEBAR ==================== */
+:host(pdfiuh-sidebar) {
+  display: block;
+  grid-area: sidebar;
+  width: var(--fluent-sidebar-width);
+  height: 100%;
+  background: var(--fluent-surface);
+  border-right: 1px solid var(--fluent-border);
+  overflow: hidden;
+  transition: width var(--fluent-anim-normal) var(--fluent-ease);
+}
+
+:host(pdfiuh-sidebar[collapsed]) {
+  width: 0;
+  border-right: none;
+}
+
+.sidebar-tabs {
+  display: flex;
+  height: 36px;
+  border-bottom: 1px solid var(--fluent-border);
+}
+
+.sidebar-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--fluent-text-secondary);
+  font-family: var(--fluent-font);
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+  transition: color var(--fluent-anim-fast);
+}
+
+.sidebar-tab:hover {
+  color: var(--fluent-text-primary);
+  background: var(--fluent-hover);
+}
+
+.sidebar-tab.active {
+  color: var(--fluent-accent);
+}
+
+.sidebar-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--fluent-accent);
+  border-radius: 1px 1px 0 0;
+}
+
+.sidebar-tab svg {
+  width: 14px;
+  height: 14px;
+}
+
+.sidebar-content {
+  height: calc(100% - 36px);
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+/* ToC */
+.toc-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 16px;
+  font-size: 13px;
+  color: var(--fluent-text-primary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--fluent-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--fluent-anim-fast);
+}
+
+.toc-item:hover {
+  background: var(--fluent-hover);
+}
+
+.toc-item.level-1 { padding-left: 32px; font-size: 12px; }
+.toc-item.level-2 { padding-left: 48px; font-size: 12px; }
+
+/* Thumbnails */
+.thumb-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.thumb-item {
+  position: relative;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: var(--fluent-radius-sm);
+  overflow: hidden;
+  transition: border-color var(--fluent-anim-fast);
+}
+
+.thumb-item:hover {
+  border-color: var(--fluent-border-strong);
+}
+
+.thumb-item.active {
+  border-color: var(--fluent-accent);
+}
+
+.thumb-item canvas {
+  display: block;
+  width: 100%;
+  background: white;
+}
+
+.thumb-label {
+  font-size: 10px;
+  text-align: center;
+  color: var(--fluent-text-secondary);
+  padding: 2px 0;
+}
+
+.toc-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--fluent-text-disabled);
+  font-size: 12px;
+}
+
+/* ==================== VIEWER ==================== */
+
+.viewer-scroll {
+  grid-area: viewer;
+  overflow-y: auto;
+  overflow-x: auto;
+  background: var(--fluent-viewer-bg);
+  position: relative;
+  outline: none;
+}
+
+.pages-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 0 80px;
+  min-height: 100%;
+}
+
+/* ---- Single Page ---- */
+.page-container {
+  position: relative;
+  margin-bottom: 12px;
+  background: white;
+  box-shadow: var(--fluent-shadow-page);
+  border-radius: 1px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.page-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.page-container .annotation-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.page-container .annotation-layer.tool-active {
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.page-container .annotation-layer.tool-eraser {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><circle cx="8" cy="8" r="6" fill="none" stroke="%23333" stroke-width="1.5"/></svg>') 8 8, auto;
+}
+
+/* Annotation SVG elements */
+.annotation-layer .annot-highlight {
+  cursor: pointer;
+  transition: opacity var(--fluent-anim-fast);
+}
+
+.annotation-layer .annot-highlight:hover {
+  opacity: 0.7;
+}
+
+.annotation-layer .annot-ink {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: stroke;
+}
+
+.annotation-layer .annot-ink:hover {
+  filter: brightness(1.2);
+}
+
+.annotation-layer .annot-note-icon {
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+  transition: transform var(--fluent-anim-fast);
+}
+
+.annotation-layer .annot-note-icon:hover {
+  transform: scale(1.15);
+}
+
+/* ---- Loading placeholder ---- */
+.page-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+}
+
+[data-theme="dark"] .page-loading {
+  background: #2a2a2a;
+}
+
+.page-loading .mini-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--fluent-border);
+  border-top-color: var(--fluent-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ==================== FIND BAR ==================== */
+.find-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--fluent-surface);
+  border: 1px solid var(--fluent-border);
+  border-top: none;
+  border-radius: 0 0 var(--fluent-radius-sm) var(--fluent-radius-sm);
+  box-shadow: var(--fluent-shadow-md);
+  z-index: 200;
+  animation: findBarSlide 0.15s var(--fluent-ease-decel);
+}
+
+@keyframes findBarSlide {
+  from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.find-input {
+  width: 240px;
+  height: 28px;
+  border: 1px solid var(--fluent-border);
+  border-radius: var(--fluent-radius-sm);
+  background: var(--fluent-surface-alt);
+  color: var(--fluent-text-primary);
+  font-family: var(--fluent-font);
+  font-size: 13px;
+  padding: 0 8px;
+  outline: none;
+}
+
+.find-input:focus {
+  border-color: var(--fluent-accent);
+  box-shadow: 0 0 0 1px var(--fluent-accent);
+}
+
+.find-count {
+  font-size: 11px;
+  color: var(--fluent-text-secondary);
+  min-width: 60px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.find-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--fluent-radius-sm);
+  background: transparent;
+  color: var(--fluent-text-primary);
+  cursor: pointer;
+}
+
+.find-btn:hover {
+  background: var(--fluent-hover);
+}
+
+.find-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ==================== NOTE POPUP ==================== */
+.note-popup {
+  position: absolute;
+  width: 200px;
+  background: var(--fluent-surface);
+  border: 1px solid var(--fluent-border);
+  border-radius: var(--fluent-radius-md);
+  box-shadow: var(--fluent-shadow-lg);
+  z-index: 300;
+  padding: 8px;
+  animation: notePopIn 0.15s var(--fluent-ease-decel);
+}
+
+@keyframes notePopIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.note-popup textarea {
+  width: 100%;
+  height: 80px;
+  border: 1px solid var(--fluent-border);
+  border-radius: var(--fluent-radius-sm);
+  background: var(--fluent-surface-alt);
+  color: var(--fluent-text-primary);
+  font-family: var(--fluent-font);
+  font-size: 12px;
+  padding: 6px;
+  resize: vertical;
+  outline: none;
+}
+
+.note-popup textarea:focus {
+  border-color: var(--fluent-accent);
+}
+
+.note-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.note-popup-actions button {
+  padding: 4px 12px;
+  border: none;
+  border-radius: var(--fluent-radius-sm);
+  font-family: var(--fluent-font);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.note-save-btn {
+  background: var(--fluent-accent);
+  color: white;
+}
+
+.note-cancel-btn {
+  background: var(--fluent-hover);
+  color: var(--fluent-text-primary);
+}

@@ -1,0 +1,173 @@
+/**
+ * pdfiuh — Toolbar Styles (Fluent Design)
+ */
+
+:host {
+  display: flex;
+  grid-area: toolbar;
+  align-items: center;
+  height: var(--fluent-toolbar-height);
+  background: var(--fluent-toolbar-bg);
+  border-bottom: 1px solid var(--fluent-border);
+  padding: 0 8px;
+  gap: 2px;
+  font-family: var(--fluent-font);
+  user-select: none;
+  z-index: 100;
+  -webkit-app-region: drag;
+}
+
+/* ---- Button base ---- */
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--fluent-radius-sm);
+  background: transparent;
+  color: var(--fluent-text-primary);
+  font-family: var(--fluent-font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--fluent-anim-fast) var(--fluent-ease);
+  -webkit-app-region: no-drag;
+  position: relative;
+}
+
+.tb-btn:hover {
+  background: var(--fluent-hover);
+}
+
+.tb-btn:active {
+  background: var(--fluent-active);
+}
+
+.tb-btn.active {
+  background: var(--fluent-accent-light);
+  color: var(--fluent-accent);
+}
+
+.tb-btn:focus-visible {
+  outline: 2px solid var(--fluent-focus-ring);
+  outline-offset: -2px;
+}
+
+.tb-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.tb-btn .btn-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Icon-only variant */
+.tb-btn.icon-only {
+  padding: 0;
+  width: 32px;
+}
+
+/* ---- Separator ---- */
+.tb-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--fluent-border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ---- Zoom display ---- */
+.zoom-display {
+  font-size: 12px;
+  min-width: 44px;
+  text-align: center;
+  color: var(--fluent-text-secondary);
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+}
+
+/* ---- Toolbar groups ---- */
+.tb-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tb-spacer {
+  flex: 1;
+}
+
+/* ---- Page indicator ---- */
+.page-input {
+  width: 42px;
+  height: 26px;
+  border: 1px solid var(--fluent-border);
+  border-radius: var(--fluent-radius-sm);
+  background: var(--fluent-surface);
+  color: var(--fluent-text-primary);
+  font-family: var(--fluent-font);
+  font-size: 12px;
+  text-align: center;
+  padding: 0 4px;
+  -webkit-app-region: no-drag;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: var(--fluent-accent);
+  box-shadow: 0 0 0 1px var(--fluent-accent);
+}
+
+.page-total {
+  font-size: 12px;
+  color: var(--fluent-text-secondary);
+  margin: 0 2px;
+}
+
+/* ---- Color picker strip ---- */
+.color-strip {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color var(--fluent-anim-fast);
+}
+
+.color-dot:hover {
+  border-color: var(--fluent-text-secondary);
+}
+
+.color-dot.active {
+  border-color: var(--fluent-accent);
+  box-shadow: 0 0 0 1px var(--fluent-accent);
+}
+
+/* ---- Title (file name) ---- */
+.tb-title {
+  font-size: 12px;
+  color: var(--fluent-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  padding: 0 8px;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 800px) {
+  .btn-label { display: none; }
+  .tb-title { display: none; }
+}

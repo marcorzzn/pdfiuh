@@ -1,0 +1,348 @@
+/**
+ * pdfiuh — Fluent Design System Tokens + Global Styles
+ * Replicates Microsoft Edge's Fluent UI aesthetic with light/dark themes.
+ */
+
+/* ==================== DESIGN TOKENS ==================== */
+:root {
+  /* --- Light theme (default for Fluent) --- */
+  --fluent-bg: #f3f3f3;
+  --fluent-surface: #ffffff;
+  --fluent-surface-alt: #fafafa;
+  --fluent-toolbar-bg: #f9f9f9;
+  --fluent-border: rgba(0, 0, 0, 0.073);
+  --fluent-border-strong: rgba(0, 0, 0, 0.12);
+  --fluent-text-primary: #1a1a1a;
+  --fluent-text-secondary: #616161;
+  --fluent-text-disabled: #a0a0a0;
+  --fluent-accent: #0067c0;
+  --fluent-accent-hover: #005ba4;
+  --fluent-accent-light: rgba(0, 103, 192, 0.08);
+  --fluent-hover: rgba(0, 0, 0, 0.04);
+  --fluent-active: rgba(0, 0, 0, 0.08);
+  --fluent-focus-ring: rgba(0, 103, 192, 0.4);
+  --fluent-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --fluent-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.12);
+  --fluent-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.14);
+  --fluent-shadow-page: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0, 0, 0, 0.1);
+  --fluent-radius-sm: 4px;
+  --fluent-radius-md: 8px;
+  --fluent-radius-lg: 12px;
+  --fluent-toolbar-height: 44px;
+  --fluent-sidebar-width: 260px;
+  --fluent-findbar-height: 40px;
+  --fluent-font: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --fluent-font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --fluent-anim-fast: 120ms;
+  --fluent-anim-normal: 200ms;
+  --fluent-anim-slow: 300ms;
+  --fluent-ease: cubic-bezier(0.33, 0, 0.67, 1);
+  --fluent-ease-decel: cubic-bezier(0, 0, 0, 1);
+  --fluent-viewer-bg: #e8e8e8;
+
+  /* Highlight colors */
+  --highlight-yellow: rgba(255, 235, 59, 0.4);
+  --highlight-green: rgba(76, 175, 80, 0.4);
+  --highlight-blue: rgba(33, 150, 243, 0.4);
+  --highlight-pink: rgba(233, 30, 99, 0.4);
+  --highlight-orange: rgba(255, 152, 0, 0.4);
+}
+
+/* --- Dark theme --- */
+[data-theme="dark"] {
+  --fluent-bg: #1c1c1c;
+  --fluent-surface: #272727;
+  --fluent-surface-alt: #2d2d2d;
+  --fluent-toolbar-bg: #2c2c2c;
+  --fluent-border: rgba(255, 255, 255, 0.083);
+  --fluent-border-strong: rgba(255, 255, 255, 0.14);
+  --fluent-text-primary: #f3f3f3;
+  --fluent-text-secondary: #a3a3a3;
+  --fluent-text-disabled: #5c5c5c;
+  --fluent-accent: #4cc2ff;
+  --fluent-accent-hover: #62cdff;
+  --fluent-accent-light: rgba(76, 194, 255, 0.1);
+  --fluent-hover: rgba(255, 255, 255, 0.06);
+  --fluent-active: rgba(255, 255, 255, 0.1);
+  --fluent-focus-ring: rgba(76, 194, 255, 0.5);
+  --fluent-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --fluent-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --fluent-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5);
+  --fluent-shadow-page: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 1px rgba(0, 0, 0, 0.3);
+  --fluent-viewer-bg: #1e1e1e;
+
+  --highlight-yellow: rgba(255, 235, 59, 0.35);
+  --highlight-green: rgba(76, 175, 80, 0.35);
+  --highlight-blue: rgba(33, 150, 243, 0.35);
+  --highlight-pink: rgba(233, 30, 99, 0.35);
+  --highlight-orange: rgba(255, 152, 0, 0.35);
+}
+
+/* ==================== RESET + GLOBAL ==================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--fluent-font);
+  font-size: 14px;
+  color: var(--fluent-text-primary);
+  background: var(--fluent-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ==================== APP LAYOUT ==================== */
+.pdfiuh-app {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: var(--fluent-toolbar-height) 1fr;
+  grid-template-areas:
+    "toolbar toolbar"
+    "sidebar viewer";
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.pdfiuh-app.sidebar-collapsed {
+  grid-template-columns: 0px 1fr;
+}
+
+/* ==================== SCROLLBAR ==================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--fluent-border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fluent-text-secondary);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fluent-border-strong) transparent;
+}
+
+/* ==================== BOOT SCREEN ==================== */
+#boot-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  background: var(--fluent-bg);
+  transition: opacity var(--fluent-anim-slow) var(--fluent-ease);
+}
+
+#boot-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boot-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--fluent-radius-lg);
+  margin-bottom: 24px;
+  animation: bootPulse 2s ease-in-out infinite;
+}
+
+@keyframes bootPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+.boot-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--fluent-border);
+  border-top-color: var(--fluent-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#boot-status {
+  font-size: 13px;
+  color: var(--fluent-text-secondary);
+  letter-spacing: 0.3px;
+}
+
+/* ==================== HOME SCREEN ==================== */
+.home-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+}
+
+.home-card {
+  background: var(--fluent-surface);
+  border: 1px solid var(--fluent-border);
+  border-radius: var(--fluent-radius-lg);
+  padding: 48px;
+  text-align: center;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--fluent-shadow-lg);
+  animation: homeSlideUp 0.5s var(--fluent-ease-decel) both;
+}
+
+@keyframes homeSlideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.home-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--fluent-radius-md);
+  margin-bottom: 20px;
+}
+
+.home-card h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--fluent-text-primary);
+}
+
+.home-card p {
+  color: var(--fluent-text-secondary);
+  font-size: 14px;
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+.drop-zone {
+  border: 2px dashed var(--fluent-border-strong);
+  border-radius: var(--fluent-radius-md);
+  padding: 36px 20px;
+  cursor: pointer;
+  transition: all var(--fluent-anim-normal) var(--fluent-ease);
+  background: transparent;
+}
+
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--fluent-accent);
+  background: var(--fluent-accent-light);
+}
+
+.drop-zone-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.drop-zone-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--fluent-accent);
+}
+
+.drop-zone-content p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fluent-text-secondary);
+}
+
+.drop-zone-content a {
+  color: var(--fluent-accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.drop-zone-content a:hover {
+  text-decoration: underline;
+}
+
+.home-footer {
+  margin-top: 28px;
+  font-size: 11px;
+  color: var(--fluent-text-disabled);
+  letter-spacing: 0.3px;
+}
+
+/* ==================== VIEWER CONTAINER ==================== */
+#viewer-container {
+  display: none;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ==================== TEXT LAYER (PDF.js) ==================== */
+.text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.3;
+  line-height: 1.0;
+  text-size-adjust: none;
+}
+
+.text-layer span {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  cursor: text;
+}
+
+.text-layer span::selection {
+  background: var(--fluent-accent);
+  color: transparent;
+  opacity: 0.3;
+}
+
+.text-layer span::-moz-selection {
+  background: var(--fluent-accent);
+  color: transparent;
+  opacity: 0.3;
+}
+
+/* ==================== FIND HIGHLIGHTS ==================== */
+.text-layer .find-match {
+  background: var(--highlight-yellow);
+  border-radius: 2px;
+}
+
+.text-layer .find-match-current {
+  background: var(--fluent-accent);
+  opacity: 0.6;
+  border-radius: 2px;
+}
+
+/* ==================== UTILITY ==================== */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  border: 0 !important;
+}

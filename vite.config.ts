@@ -1,18 +1,20 @@
 import { defineConfig } from 'vite';
-import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
   base: '/pdfiuh/',
+<<<<<<< HEAD
   plugins: [svelte()],
   optimizeDeps: {
     // PDF.js deve essere esplicitamente incluso in optimizeDeps per il bundling corretto in Vite
     include: ['pdfjs-dist']
   },
+=======
+>>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
   worker: {
     format: 'es',
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name]-[hash].js'
+        entryFileNames: 'assets/[name].[hash].js'
       }
     }
   },
