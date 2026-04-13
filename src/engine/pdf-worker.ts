@@ -5,10 +5,9 @@
  */
 import * as pdfjsLib from 'pdfjs-dist';
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.mjs',
-  import.meta.url
-).href;
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PDFDoc = Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']>;
 type PDFPage = Awaited<ReturnType<PDFDoc['getPage']>>;
@@ -85,10 +84,7 @@ self.onmessage = async (e: MessageEvent) => {
 
         pdfBuffer = payload.buffer.slice(0); // keep a copy for export
         const data = new Uint8Array(payload.buffer);
-        const loadingTask = pdfjsLib.getDocument({
-          data,
-          standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`,
-        });
+        const loadingTask = pdfjsLib.getDocument({ data });
         pdfDoc = await loadingTask.promise;
 
         const outlineItems = await pdfDoc.getOutline();
