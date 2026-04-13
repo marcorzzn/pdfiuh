@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -24,5 +25,9 @@ export default defineConfig({
     terserOptions: {
       compress: { drop_console: false, drop_debugger: true }
     }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
   }
 });
