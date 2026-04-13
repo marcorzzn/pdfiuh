@@ -6,7 +6,7 @@ Lettore PDF con annotazioni, progettato per GitHub Pages. Offline-first, single-
 
 | Layer | Tecnologia |
 |---|---|
-| Framework UI | Svelte 5 + TypeScript + Vite |
+| UI | Web Components (Custom Elements) + TypeScript + Vite |
 | Rendering PDF | PDF.js v4+ (Web Worker, OffscreenCanvas) |
 | Persistenza | Dexie.js + IndexedDB |
 | PWA | Service Worker + manifest |
@@ -21,6 +21,7 @@ Lettore PDF con annotazioni, progettato per GitHub Pages. Offline-first, single-
 - **Export**: download XFDF (ri-editabile) o PDF con annotazioni incorporate
 - **PWA**: installabile, funziona offline
 - **Degradazione adattiva**: rileva hardware e scala le risorse
+- **Ricerca full-text**: Ctrl+F con highlighting preciso nel text layer
 
 ## Setup
 
@@ -38,33 +39,34 @@ npm test           # Vitest
 ```
 src/
 ├── core/            # Logica di business
-│   ├── annotation-store.ts    # Dexie.js CRUD
-│   ├── annotation-export.ts   # XFDF import/export
-│   ├── pdf-export.ts          # pdf-lib: embed annotazioni
-│   ├── pdf-loader.ts          # caricamento + hashing PDF
-│   └── device-profile.ts      # hardware detection
-├── workers/         # Web Workers
-│   ├── pdf-renderer.worker.ts # rendering off-main-thread
-│   └── search.worker.ts       # full-text search (v2)
-├── ui/              # Componenti Svelte
-│   ├── Viewer.svelte          # Canvas + navigazione
-│   ├── Toolbar.svelte         # Zoom, annotazioni, salvataggio
-│   ├── AnnotationLayer.svelte # SVG overlay
-│   ├── Sidebar.svelte         # Lista annotazioni
-│   └── DropZone.svelte        # Drag & drop apertura PDF
-├── stores/          # Svelte stores
-│   ├── viewer.store.ts        # pagina, zoom, rotazione
-│   ├── annotations.store.ts   # annotazioni in memoria
-│   └── pdf.store.ts           # buffer PDF corrente
-└── styles/
-    ├── global.css             # Variabili CSS, reset
-    └── themes.css             # Tema chiaro/scuro
+│   └── event-bus.ts           # Pub/Sub system
+├── engine/          # Engine modules
+│   ├── device-profile.ts      # hardware detection
+│   └── pdf-worker.ts          # Web Worker: rendering, text extraction
+├── state/           # State management
+│   └── store.ts               # Reactive pub/sub store
+├── annotations/     # Annotation system
+│   ├── engine.ts              # Coordinate conversion utilities
+│   ├── export.ts              # XFDF import/export + pdf-lib embed
+│   ├── storage.ts             # Dexie.js IndexedDB wrapper
+│   └── svg-layer.ts           # SVG annotation overlay (ink, highlight, notes)
+├── ui/              # Web Components
+│   ├── components/
+│   │   ├── find-bar.ts        # Ctrl+F search with precise highlighting
+│   │   ├── Sidebar.ts         # Tabbed sidebar (ToC + thumbnails)
+│   │   ├── Toolbar.ts         # Main toolbar with tools, zoom, navigation
+│   │   └── Viewer.ts          # Virtual scrolling page viewer
+│   └── styles/
+│       ├── fluent.css         # Fluent Design tokens, light/dark themes
+│       ├── toolbar.css        # Toolbar styles
+│       └── viewer.css         # Viewer + sidebar styles
+└── main.ts          # App entry point, worker message router
 ```
 
 ## Roadmap
 
-- **Fase 1** — Rendering base + navigazione
-- **Fase 2** — Annotazioni + persistenza IndexedDB
-- **Fase 3** — Export XFDF + pdf-lib
-- **Fase 4** — PWA + ottimizzazioni low-end
-- **Fase 5** — Ricerca full-text (Lunr.js)
+- **Fase 1** ✅ Rendering base + navigazione
+- **Fase 2** ✅ Annotazioni + persistenza IndexedDB
+- **Fase 3** ✅ Export XFDF + pdf-lib
+- **Fase 4** ✅ PWA + ottimizzazioni low-end
+- **Fase 5** ✅ Ricerca full-text con highlighting preciso

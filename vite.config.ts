@@ -14,14 +14,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     minify: 'terser',
-    rollupOptions: {
-      output: {
-        // Separa PDF.js in chunk dedicato per performance
-        manualChunks: {
-          pdfjs: ['pdfjs-dist']
-        }
-      }
-    },
     terserOptions: {
       compress: { drop_console: false, drop_debugger: true }
     }

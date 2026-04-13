@@ -172,26 +172,39 @@ export async function exportPDF(docId: string, pdfBuffer: ArrayBuffer, fileName:
   }
 
   const pdfBytes = await pdfDoc.save();
-  downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), fileName.replace('.pdf', '_annots.pdf'));
+  downloadBlob(new Blob([pdfBytes as unknown as ArrayBuffer], { type: 'application/pdf' }), fileName.replace('.pdf', '_annots.pdf'));
 }
 
 export async function exportXFDF(docId: string, fileName: string): Promise<void> {
   const annots = await storage.loadAnnotations(docId);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const exportFormat: any[] = annots.map(a => ({
-    id: a.id,
-    docId,
-    pageNumber: a.page,
-    type: a.type,
-    data: {
-      rect: a.rect,
-      text: a.text,
-      color: a.color,
-      paths: a.points,
-    },
-    createdAt: a.createdAt,
-    updatedAt: a.updatedAt,
-  }));
+  // Convert storage format to export format
+  const exportFormat: AnnotationExport[] = annots.map(a => {
+    // Convert rect from {x, y, w, h} to {x, y, width, height}
+    let rect: { x: number; y: number; width: number; height: number } | undefined;
+    if (a.rect) {
+      rect = {
+        x: a.rect.x,
+        y: a.rect.y,
+        width: a.rect.w,
+        height: a.rect.h,
+      };
+    }
+
+    return {
+      id: a.id,
+      docId,
+      pageNumber: a.page,
+      type: a.type === 'ink' ? 'ink' : a.type === 'highlight' ? 'highlight' : a.type === 'note' ? 'note' : 'text',
+      data: {
+        rect,
+        text: a.text,
+        color: a.color,
+        paths: a.points,
+      },
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
+    };
+  });
 
   const xml = toXFDF(exportFormat, docId);
   downloadBlob(new Blob([xml], { type: 'application/vnd.adobe.xfdf' }), fileName.replace('.pdf', '') + '.xfdf');
@@ -203,12 +216,22 @@ export async function importXFDF(docId: string, xfdfString: string): Promise<voi
     if (ann.docId && ann.docId !== docId) {
       console.warn(`XFDF annot docId mismatch: ${ann.docId} != ${docId}`);
     }
+    // Convert rect from XFDF format {x, y, width, height} to storage format {x, y, w, h}
+    let rect: { x: number; y: number; w: number; h: number } | undefined;
+    if (ann.data.rect) {
+      rect = {
+        x: ann.data.rect.x,
+        y: ann.data.rect.y,
+        w: ann.data.rect.width,
+        h: ann.data.rect.height,
+      };
+    }
+
     await storage.saveAnnotation(docId, {
       page: ann.pageNumber,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      type: ann.type as any,
+      type: ann.type === 'text' ? 'note' : ann.type as any,
       color: ann.data.color || '#000000',
-      rect: ann.data.rect,
+      rect,
       text: ann.data.text,
       points: ann.data.paths,
     });

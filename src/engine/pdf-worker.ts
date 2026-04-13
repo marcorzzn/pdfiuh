@@ -33,8 +33,9 @@ if (typeof (globalThis as any).document === 'undefined') {
 }
 // --------------------------------------------------------
 
+// Configure PDF.js worker source for Vite
+// Use a stable URL that works in both dev and production builds
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
-
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PDFDoc = Awaited<ReturnType<typeof pdfjsLib.getDocument>['promise']>;
@@ -158,6 +159,10 @@ self.onmessage = async (e: MessageEvent) => {
           self.postMessage({ type: 'ERROR', message: 'PDF not loaded' });
           return;
         }
+        if (pageNumber < 1 || pageNumber > pdfDoc.numPages) {
+          self.postMessage({ type: 'ERROR', message: `Page ${pageNumber} out of range (1-${pdfDoc.numPages})` });
+          return;
+        }
 
         const page = await getPage(pageNumber);
         const viewport = page.getViewport({ scale });
@@ -267,6 +272,8 @@ self.onmessage = async (e: MessageEvent) => {
         console.warn(`[pdf-worker] Unknown message type: ${type}`);
     }
   } catch (err) {
-    self.postMessage({ type: 'ERROR', message: (err as Error).message });
+    const errorMsg = (err as Error).message || String(err);
+    console.error(`[pdf-worker] Error handling ${type}:`, errorMsg);
+    self.postMessage({ type: 'ERROR', message: `[${type}] ${errorMsg}` });
   }
 };

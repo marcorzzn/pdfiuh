@@ -26,12 +26,16 @@ interface PageState {
   loading: HTMLDivElement;
   rendered: boolean;
   renderScale: number;
+  /** Maps character offsets to their span elements for find highlighting */
+  textLayerCharMap: { offset: number; length: number; span: HTMLSpanElement }[];
+  /** Full extracted text for this page */
+  textLayerFullText: string;
 }
 
 class PDFiuhViewer extends HTMLElement {
   private root: ShadowRoot;
   private worker: Worker | null = null;
-  private scroll!: HTMLDivElement;
+  private scrollContainer!: HTMLDivElement;
   private pagesContainer!: HTMLDivElement;
 
   private pages = new Map<number, PageState>();
@@ -60,21 +64,21 @@ class PDFiuhViewer extends HTMLElement {
     style.textContent = viewerCSS;
     this.root.appendChild(style);
 
-    this.scroll = document.createElement('div');
-    this.scroll.className = 'viewer-scroll';
-    this.scroll.tabIndex = 0;
+    this.scrollContainer = document.createElement('div');
+    this.scrollContainer.className = 'viewer-scroll';
+    this.scrollContainer.tabIndex = 0;
 
     this.pagesContainer = document.createElement('div');
     this.pagesContainer.className = 'pages-container';
 
-    this.scroll.appendChild(this.pagesContainer);
-    this.root.appendChild(this.scroll);
+    this.scrollContainer.appendChild(this.pagesContainer);
+    this.root.appendChild(this.scrollContainer);
 
     // Scroll tracking for current page
-    this.scroll.addEventListener('scroll', () => this.updateCurrentPage(), { passive: true });
+    this.scrollContainer.addEventListener('scroll', () => this.updateCurrentPage(), { passive: true });
 
     // Mouse wheel zoom with Ctrl
-    this.scroll.addEventListener('wheel', (e) => {
+    this.scrollContainer.addEventListener('wheel', (e) => {
       if (e.ctrlKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
@@ -127,14 +131,14 @@ class PDFiuhViewer extends HTMLElement {
     });
 
     bus.subscribe('fit-width', () => {
-      const containerWidth = this.scroll.clientWidth - 48; // padding
+      const containerWidth = this.scrollContainer.clientWidth - 48; // padding
       const newZoom = containerWidth / this.baseWidth;
       store.set('zoom', +Math.max(0.25, Math.min(4.0, newZoom)).toFixed(2));
     });
 
     bus.subscribe('fit-page', () => {
-      const containerWidth = this.scroll.clientWidth - 48;
-      const containerHeight = this.scroll.clientHeight - 48;
+      const containerWidth = this.scrollContainer.clientWidth - 48;
+      const containerHeight = this.scrollContainer.clientHeight - 48;
       const zoomW = containerWidth / this.baseWidth;
       const zoomH = containerHeight / this.baseHeight;
       const newZoom = Math.min(zoomW, zoomH);
@@ -206,6 +210,8 @@ class PDFiuhViewer extends HTMLElement {
         loading,
         rendered: false,
         renderScale: 0,
+        textLayerCharMap: [],
+        textLayerFullText: '',
       });
     }
 
@@ -224,7 +230,7 @@ class PDFiuhViewer extends HTMLElement {
         }
       }
     }, {
-      root: this.scroll,
+      root: this.scrollContainer,
       rootMargin: '300px 0px',
       threshold: 0,
     });
@@ -308,7 +314,21 @@ class PDFiuhViewer extends HTMLElement {
       }
 
       case 'ERROR': {
-        console.error('[Viewer] Worker error:', data.message || (payload as Record<string, unknown>)?.message);
+        const errorMsg = data.message || String((payload as Record<string, unknown>)?.message) || 'Unknown error';
+        console.error('[Viewer] Worker error:', errorMsg);
+        const pgNum = (payload as Record<string, unknown>)?.pageNumber as number | undefined;
+        if (pgNum !== undefined) {
+          this.pendingRenders.delete(pgNum);
+        }
+
+        // Show error on the affected page
+        if (typeof pgNum === 'number') {
+          const state = this.pages.get(pgNum);
+          if (state) {
+            state.loading.innerHTML = `<div style="color:#e06c75;font-size:11px;text-align:center;padding:8px;">⚠️ ${errorMsg.replace(/"/g, '&quot;')}</div>`;
+            state.loading.style.display = 'flex';
+          }
+        }
         break;
       }
     }
@@ -327,6 +347,14 @@ class PDFiuhViewer extends HTMLElement {
     if (!items) return;
 
     const scale = zoom * dpr;
+    const pageNum = parseInt((container.closest('.page-container') as HTMLElement | null)?.dataset.page || '0');
+    const state = this.pages.get(pageNum);
+    if (!state) return;
+
+    // Reset text tracking
+    state.textLayerCharMap = [];
+    let charOffset = 0;
+    let fullText = '';
 
     for (const item of items) {
       if (!item.str || item.str.trim() === '') continue;
@@ -354,7 +382,19 @@ class PDFiuhViewer extends HTMLElement {
       }
 
       container.appendChild(span);
+
+      // Build character map for find highlighting
+      const str = item.str;
+      state.textLayerCharMap.push({
+        offset: charOffset,
+        length: str.length,
+        span,
+      });
+      fullText += str;
+      charOffset += str.length;
     }
+
+    state.textLayerFullText = fullText;
   }
 
   private onZoomChange(): void {
@@ -377,8 +417,8 @@ class PDFiuhViewer extends HTMLElement {
   }
 
   private updateCurrentPage(): void {
-    const scrollTop = this.scroll.scrollTop;
-    const scrollCenter = scrollTop + this.scroll.clientHeight / 3;
+    const scrollTop = this.scrollContainer.scrollTop;
+    const scrollCenter = scrollTop + this.scrollContainer.clientHeight / 3;
 
     let closestPage = 1;
     let closestDist = Infinity;
@@ -411,7 +451,7 @@ class PDFiuhViewer extends HTMLElement {
     // Import and create find bar dynamically
     import('./find-bar').then(() => {
       const fb = document.createElement('pdfiuh-findbar') as HTMLElement;
-      this.scroll.appendChild(fb);
+      this.scrollContainer.appendChild(fb);
       this.findBarElement = fb;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (fb as any).setViewer?.(this);
@@ -425,23 +465,38 @@ class PDFiuhViewer extends HTMLElement {
     }
   }
 
-  /** Used by find bar to highlight matches in text layers */
-  highlightTextMatch(pageNum: number, matchIndex: number, isCurrent: boolean): void {
+  /** Used by find bar to highlight a match by character offset and length */
+  highlightTextMatch(pageNum: number, charOffset: number, matchLength: number, isCurrent: boolean): void {
     const state = this.pages.get(pageNum);
-    if (!state) return;
+    if (!state || state.textLayerCharMap.length === 0) return;
 
-    const spans = state.textLayer.querySelectorAll('span');
-    let count = 0;
-    for (const span of spans) {
-      const text = span.textContent || '';
-      if (text.trim()) {
-        if (count === matchIndex) {
-          span.classList.add(isCurrent ? 'find-match-current' : 'find-match');
-          if (isCurrent) {
-            span.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
-        count++;
+    // Clear previous highlights on this page
+    state.textLayer.querySelectorAll('.find-match, .find-match-current').forEach(el => {
+      el.classList.remove('find-match', 'find-match-current');
+    });
+
+    const matchEnd = charOffset + matchLength;
+    const highlightedSpans = new Set<HTMLSpanElement>();
+
+    // Find all spans that overlap with the match range
+    for (const entry of state.textLayerCharMap) {
+      const spanEnd = entry.offset + entry.length;
+      // Check if this span overlaps with the match range
+      if (entry.offset < matchEnd && spanEnd > charOffset) {
+        highlightedSpans.add(entry.span);
+      }
+    }
+
+    // Apply highlight classes
+    for (const span of highlightedSpans) {
+      span.classList.add(isCurrent ? 'find-match-current' : 'find-match');
+    }
+
+    // Scroll first highlighted span into view
+    if (isCurrent && highlightedSpans.size > 0) {
+      const firstSpan = highlightedSpans.values().next().value;
+      if (firstSpan) {
+        firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
   }

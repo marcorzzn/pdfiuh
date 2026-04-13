@@ -15,6 +15,8 @@ class PDFiuhApp {
   private bootScreen = document.getElementById('boot-screen')!;
   private appContainer = document.getElementById('viewer-container')!;
   private activeFile: File | null = null;
+  private viewerElement: any = null;
+  private sidebarElement: any = null;
 
   constructor() {
     this.init();
@@ -177,6 +179,32 @@ class PDFiuhApp {
         this.setupMainUI(payload.totalPages, payload.outline, payload.pageWidth, payload.pageHeight);
         break;
 
+      case 'RENDERED':
+        // Forward RENDERED page to the Viewer component
+        this.viewerElement?.handleWorkerMessage(data);
+        break;
+
+      case 'THUMBNAIL_RENDERED':
+        // Forward thumbnail to Sidebar
+        this.sidebarElement?.handleThumbnailRendered(
+          payload?.pageNumber,
+          payload?.bitmap,
+          payload?.width,
+          payload?.height
+        );
+        break;
+
+      case 'TEXT_EXTRACTED':
+        // Text extraction result — used by find-bar via viewer
+        if (payload) {
+          bus.publish('text-extracted', { pageNumber: payload.pageNumber, text: payload.text });
+        }
+        break;
+
+      case 'PAGE_COUNT':
+        // Fast page count (before full load)
+        break;
+
       case 'PDF_BUFFER':
         exportPDF(store.get('docId'), payload.buffer, this.activeFile?.name || 'document.pdf');
         break;
@@ -194,20 +222,20 @@ class PDFiuhApp {
       <pdfiuh-viewer id="main-viewer"></pdfiuh-viewer>
     `;
 
-    const sidebar = document.getElementById('main-sidebar') as any;
-    const viewer = document.getElementById('main-viewer') as any;
+    this.sidebarElement = document.getElementById('main-sidebar');
+    this.viewerElement = document.getElementById('main-viewer');
 
-    if (sidebar) {
-      sidebar.setWorker(this.worker);
-      sidebar.updateToC(outline || []);
+    if (this.sidebarElement) {
+      this.sidebarElement.setWorker(this.worker);
+      this.sidebarElement.updateToC(outline || []);
     }
 
-    if (viewer) {
-      viewer.setDocumentInfo(store.get('docId'), totalPages, this.worker, pageWidth, pageHeight);
+    if (this.viewerElement) {
+      this.viewerElement.setDocumentInfo(store.get('docId'), totalPages, this.worker, pageWidth, pageHeight);
     }
 
     this.appContainer.style.display = 'grid';
-    
+
     // Hide boot screen
     this.bootScreen.classList.add('hidden');
     store.set('sidebarOpen', store.get('deviceProfile') !== 'low');

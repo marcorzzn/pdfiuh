@@ -7,7 +7,8 @@ import { store } from '../../state/store';
 interface SearchMatch {
   page: number;
   text: string;
-  index: number;
+  charOffset: number;  // Character offset within the page text
+  length: number;
 }
 
 class PDFiuhFindBar extends HTMLElement {
@@ -15,7 +16,7 @@ class PDFiuhFindBar extends HTMLElement {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private viewer: any = null;
   private pageTexts = new Map<number, string>();
-  private matches: SearchMatch[] = [];
+  private searchMatches: SearchMatch[] = [];
   private currentMatch = -1;
   private lastQuery = '';
   private indexing = false;
@@ -175,7 +176,7 @@ class PDFiuhFindBar extends HTMLElement {
     this.viewer?.clearFindHighlights?.();
 
     if (!query) {
-      this.matches = [];
+      this.searchMatches = [];
       this.currentMatch = -1;
       this.updateCountDisplay();
       return;
@@ -186,21 +187,26 @@ class PDFiuhFindBar extends HTMLElement {
 
   private performSearch(query: string): void {
     const lower = query.toLowerCase();
-    this.matches = [];
+    this.searchMatches = [];
 
     for (const [page, text] of this.pageTexts) {
       let idx = 0;
       const textLower = text.toLowerCase();
       while ((idx = textLower.indexOf(lower, idx)) !== -1) {
-        this.matches.push({ page, text: text.substring(idx, idx + query.length), index: idx });
+        this.searchMatches.push({
+          page,
+          text: text.substring(idx, idx + query.length),
+          charOffset: idx,
+          length: query.length,
+        });
         idx += query.length;
       }
     }
 
-    // Sort by page, then by index
-    this.matches.sort((a, b) => a.page - b.page || a.index - b.index);
+    // Sort by page, then by offset
+    this.searchMatches.sort((a, b) => a.page - b.page || a.charOffset - b.charOffset);
 
-    if (this.matches.length > 0) {
+    if (this.searchMatches.length > 0) {
       this.currentMatch = 0;
       this.highlightCurrent();
     } else {
@@ -211,15 +217,15 @@ class PDFiuhFindBar extends HTMLElement {
   }
 
   private next(): void {
-    if (this.matches.length === 0) return;
-    this.currentMatch = (this.currentMatch + 1) % this.matches.length;
+    if (this.searchMatches.length === 0) return;
+    this.currentMatch = (this.currentMatch + 1) % this.searchMatches.length;
     this.highlightCurrent();
     this.updateCountDisplay();
   }
 
   private prev(): void {
-    if (this.matches.length === 0) return;
-    this.currentMatch = (this.currentMatch - 1 + this.matches.length) % this.matches.length;
+    if (this.searchMatches.length === 0) return;
+    this.currentMatch = (this.currentMatch - 1 + this.searchMatches.length) % this.searchMatches.length;
     this.highlightCurrent();
     this.updateCountDisplay();
   }
@@ -228,20 +234,20 @@ class PDFiuhFindBar extends HTMLElement {
     if (!this.viewer || this.currentMatch < 0) return;
     this.viewer.clearFindHighlights?.();
 
-    const match = this.matches[this.currentMatch];
+    const match = this.searchMatches[this.currentMatch];
     if (match) {
       this.viewer.scrollToPage?.(match.page);
-      // Note: Precise text layer highlighting would require per-span mapping.
-      // This is a simplified version that scrolls to the page.
+      // Highlight the exact spans that contain the match
+      this.viewer.highlightTextMatch?.(match.page, match.charOffset, match.length, true);
     }
   }
 
   private updateCountDisplay(): void {
     if (!this.countEl) return;
-    if (this.matches.length === 0 && this.lastQuery) {
+    if (this.searchMatches.length === 0 && this.lastQuery) {
       this.countEl.textContent = 'Nessun risultato';
-    } else if (this.matches.length > 0) {
-      this.countEl.textContent = `${this.currentMatch + 1} di ${this.matches.length}`;
+    } else if (this.searchMatches.length > 0) {
+      this.countEl.textContent = `${this.currentMatch + 1} di ${this.searchMatches.length}`;
     } else {
       this.countEl.textContent = '';
     }
