@@ -5,6 +5,22 @@
  */
 import * as pdfjsLib from 'pdfjs-dist';
 
+// --- FAKE WORKER POLYFILL (per vite dev-mode locale) ---
+// Quando PDF.js fallisce nel caricare il proprio sub-worker per regole ES-Modules locali,
+// ripiega sul "fake worker". Eseguendolo nel nostro worker (già separato), blocchiamo
+// il difetto in cui PDF.js cerca inavvertitamente 'document.createElement' (inesistente).
+if (typeof (globalThis as any).document === 'undefined') {
+  (globalThis as any).window = globalThis;
+  (globalThis as any).document = {
+    createElement: (tag: string) => {
+      if (tag.toLowerCase() === 'canvas') return new OffscreenCanvas(1, 1);
+      return { setAttribute: () => {}, appendChild: () => {}, removeChild: () => {}, style: {} };
+    },
+    getElementsByTagName: () => []
+  };
+}
+// --------------------------------------------------------
+
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
