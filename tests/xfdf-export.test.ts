@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toXFDF, parseXFDF } from '../src/core/annotation-export';
+import { toXFDF, parseXFDF } from '../src/annotations/export';
 
 describe('XFDF Export', () => {
   it('should serialize annotations to XFDF', () => {

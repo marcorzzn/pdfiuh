@@ -1,23 +1,13 @@
 /**
  * pdfiuh Annotation Storage
-<<<<<<< HEAD
- * Gestisce la persistenza delle annotazioni in IndexedDB usando Dexie.js.
-=======
  * Persistent annotation store using Dexie.js (IndexedDB wrapper).
  * All coordinates are normalized (0.0 - 1.0) relative to the page.
->>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
  */
-import Dexie, { type Table } from 'dexie';
-
 import Dexie, { type Table } from 'dexie';
 
 export interface Annotation {
   id: string;
-<<<<<<< HEAD
-  docId: string; // campo esplicito per il documento
-=======
   docId: string;
->>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
   page: number;
   type: 'ink' | 'highlight' | 'note' | 'eraser';
   color: string;
@@ -30,15 +20,6 @@ export interface Annotation {
   updatedAt: number;
 }
 
-<<<<<<< HEAD
-class PdfiuhDB extends Dexie {
-  annotations!: Table<Annotation>;
-
-  constructor() {
-    super('pdfiuh_db');
-    this.version(1).stores({
-      annotations: 'id, docId, page' // id è la chiave primaria
-=======
 class AnnotationDB extends Dexie {
   annotations!: Table<Annotation, string>;
 
@@ -68,12 +49,9 @@ class AnnotationStore {
       docId,
       createdAt: now,
       updatedAt: now,
->>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
     });
     return id;
   }
-<<<<<<< HEAD
-=======
 
   /** Update an existing annotation */
   async updateAnnotation(id: string, changes: Partial<Annotation>): Promise<void> {
@@ -120,23 +98,6 @@ class AnnotationStore {
       .equals(docId)
       .count();
   }
->>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
 }
 
-const db = new PdfiuhDB();
-
-export const storage = {
-  async saveAnnotation(docId: string, annotation: Annotation) {
-    await db.annotations.put({ ...annotation, docId });
-  },
-
-  async loadAnnotations(docId: string): Promise<Annotation[]> {
-    return db.annotations.where('docId').equals(docId).toArray();
-  },
-
-  async deleteAnnotation(docId: string, annotationId: string) {
-    await db.annotations
-      .where({ id: annotationId, docId })
-      .delete();
-  }
-};
+export const storage = new AnnotationStore();
