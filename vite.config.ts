@@ -2,14 +2,6 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   base: '/pdfiuh/',
-<<<<<<< HEAD
-  plugins: [svelte()],
-  optimizeDeps: {
-    // PDF.js deve essere esplicitamente incluso in optimizeDeps per il bundling corretto in Vite
-    include: ['pdfjs-dist']
-  },
-=======
->>>>>>> 692cdb1 (Refactor: Rifondazione architettura Fluent UI, worker estrazione testo e virtual scrolling)
   worker: {
     format: 'es',
     rollupOptions: {
