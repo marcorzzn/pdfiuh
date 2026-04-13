@@ -11,12 +11,24 @@ import * as pdfjsLib from 'pdfjs-dist';
 // il difetto in cui PDF.js cerca inavvertitamente 'document.createElement' (inesistente).
 if (typeof (globalThis as any).document === 'undefined') {
   (globalThis as any).window = globalThis;
+  const mockNode = {
+    setAttribute: () => {},
+    appendChild: () => {},
+    removeChild: () => {},
+    remove: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    style: {}
+  };
   (globalThis as any).document = {
     createElement: (tag: string) => {
       if (tag.toLowerCase() === 'canvas') return new OffscreenCanvas(1, 1);
-      return { setAttribute: () => {}, appendChild: () => {}, removeChild: () => {}, style: {} };
+      return { ...mockNode };
     },
-    getElementsByTagName: () => []
+    getElementsByTagName: () => [mockNode],
+    documentElement: mockNode,
+    head: mockNode,
+    body: mockNode
   };
 }
 // --------------------------------------------------------
