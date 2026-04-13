@@ -26,6 +26,14 @@ class PDFiuhApp {
     console.log('[Main] App started. Initializing...');
     this.updateStatus('Avvio sistema...');
 
+    // Check for file hash in URL (restoring from deep link)
+    const hash = window.location.hash.slice(1); // e.g. file=MyDoc.pdf
+    if (hash.startsWith('file=')) {
+      const fileName = decodeURIComponent(hash.substring(5));
+      document.title = `${fileName} — pdfiuh`;
+      this.updateStatus(`File: ${fileName}`);
+    }
+
     // 1. Detect hardware profile
     const profile = detectProfile();
     store.set('deviceProfile', profile.tier);
@@ -146,7 +154,11 @@ class PDFiuhApp {
   private async handleFileUpload(file: File) {
     this.activeFile = file;
     store.set('fileName', file.name);
-    
+
+    // Update URL hash to reflect the file (like Edge/Chrome PDF reader)
+    window.location.hash = `file=${encodeURIComponent(file.name)}`;
+    document.title = `${file.name} — pdfiuh`;
+
     // Hash file content or name to generate docId
     const docId = await this.generateDocId(file.name, file.size);
     store.set('docId', docId);

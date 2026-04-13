@@ -34,7 +34,6 @@ if (typeof (globalThis as any).document === 'undefined') {
 // --------------------------------------------------------
 
 // Configure PDF.js worker source for Vite
-// Use a stable URL that works in both dev and production builds
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -45,6 +44,9 @@ let pdfDoc: PDFDoc | null = null;
 let pdfBuffer: ArrayBuffer | null = null;
 const pageCache = new Map<number, PDFPage>();
 let maxPool = 7;
+
+// CMap URL for rendering non-Latin characters properly
+const CMAP_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/';
 
 /* ---------- helpers ---------- */
 
@@ -113,7 +115,13 @@ self.onmessage = async (e: MessageEvent) => {
 
         pdfBuffer = payload.buffer.slice(0); // keep a copy for export
         const data = new Uint8Array(payload.buffer);
-        const loadingTask = pdfjsLib.getDocument({ data });
+        const loadingTask = pdfjsLib.getDocument({
+          data,
+          cMapUrl: CMAP_URL,
+          cMapPacked: true,
+          // Enable font rendering for non-embedded fonts
+          standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+        });
         pdfDoc = await loadingTask.promise;
 
         const outlineItems = await pdfDoc.getOutline();

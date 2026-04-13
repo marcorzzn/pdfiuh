@@ -295,6 +295,11 @@ html, body {
   overflow: hidden;
 }
 
+/* Smooth scrolling for the entire app */
+html {
+  scroll-behavior: smooth;
+}
+
 /* ==================== TEXT LAYER (PDF.js) ==================== */
 .text-layer {
   position: absolute;
@@ -303,6 +308,9 @@ html, body {
   opacity: 0.3;
   line-height: 1.0;
   text-size-adjust: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .text-layer span {
@@ -311,6 +319,8 @@ html, body {
   white-space: pre;
   transform-origin: 0% 0%;
   cursor: text;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 .text-layer span::selection {

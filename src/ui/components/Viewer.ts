@@ -40,6 +40,8 @@ class PDFiuhViewer extends HTMLElement {
 
   private pages = new Map<number, PageState>();
   private pendingRenders = new Set<number>();
+  private renderQueue = new Set<number>();
+  private isRendering = false;
   private observer: IntersectionObserver | null = null;
 
   // Page dimensions (from first page viewport at scale 1.0)
@@ -229,9 +231,11 @@ class PDFiuhViewer extends HTMLElement {
           this.requestRender(pageNum);
         }
       }
+      // Process render queue with batching
+      this.processRenderQueue();
     }, {
       root: this.scrollContainer,
-      rootMargin: '300px 0px',
+      rootMargin: '400px 0px', // Pre-render more pages for smoother experience
       threshold: 0,
     });
 
@@ -253,10 +257,39 @@ class PDFiuhViewer extends HTMLElement {
     // Skip if already rendered at this scale
     if (state.rendered && Math.abs(state.renderScale - renderScale) < 0.01) return;
 
-    this.pendingRenders.add(pageNum);
-    this.worker.postMessage({
-      type: 'RENDER',
-      payload: { pageNumber: pageNum, scale: renderScale },
+    this.renderQueue.add(pageNum);
+  }
+
+  private processRenderQueue(): void {
+    if (this.isRendering || this.renderQueue.size === 0) return;
+    this.isRendering = true;
+
+    // Batch: render up to 2 pages at a time (current + next)
+    const toRender = Array.from(this.renderQueue).slice(0, 2);
+
+    requestAnimationFrame(() => {
+      for (const pageNum of toRender) {
+        this.renderQueue.delete(pageNum);
+        this.pendingRenders.add(pageNum);
+
+        const state = this.pages.get(pageNum);
+        if (!state) continue;
+
+        const zoom = store.get('zoom');
+        const dpr = window.devicePixelRatio || 1;
+        const renderScale = zoom * dpr;
+
+        this.worker!.postMessage({
+          type: 'RENDER',
+          payload: { pageNumber: pageNum, scale: renderScale },
+        });
+      }
+      this.isRendering = false;
+
+      // Continue processing if more pages are queued
+      if (this.renderQueue.size > 0) {
+        setTimeout(() => this.processRenderQueue(), 50);
+      }
     });
   }
 
@@ -339,7 +372,7 @@ class PDFiuhViewer extends HTMLElement {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: any[],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _styles: any,
+    styles: any,
     zoom: number,
     dpr: number
   ): void {
@@ -373,7 +406,16 @@ class PDFiuhViewer extends HTMLElement {
       span.style.left = `${x}px`;
       span.style.top = `${y}px`;
       span.style.fontSize = `${fontSize / scale}px`;
-      span.style.fontFamily = 'sans-serif';
+
+      // Use actual font family from PDF styles (if available)
+      if (styles && item.fontName && styles[item.fontName]) {
+        const fontData = styles[item.fontName];
+        if (fontData?.fontFamily) {
+          span.style.fontFamily = `'${fontData.fontFamily}', sans-serif`;
+        }
+      } else {
+        span.style.fontFamily = 'sans-serif';
+      }
 
       if (item.width) {
         const actualWidth = item.width * scale;
@@ -442,6 +484,7 @@ class PDFiuhViewer extends HTMLElement {
   scrollToPage(pageNum: number): void {
     const state = this.pages.get(pageNum);
     if (!state) return;
+    // Smooth scroll to page with edge-like easing
     state.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     store.set('currentPage', pageNum);
   }
