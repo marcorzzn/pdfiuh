@@ -4,7 +4,6 @@
  */
 import { PDFDocument, rgb } from 'pdf-lib';
 import { storage } from './storage';
-import { store } from '../state/store';
 
 // --- XFDF Core Functions ---
 
