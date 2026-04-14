@@ -24,7 +24,7 @@ type Listener<K extends keyof AppState> = (value: AppState[K], key: K) => void;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyListener = Listener<any>;
 
-class Store {
+export class Store {
   private state: AppState = {
     docId: '',
     totalPages: 0,
