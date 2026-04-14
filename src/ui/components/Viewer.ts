@@ -359,7 +359,8 @@ class PDFiuhViewer extends HTMLElement {
         if (typeof pgNum === 'number') {
           const state = this.pages.get(pgNum);
           if (state) {
-            state.loading.innerHTML = `<div style="color:#e06c75;font-size:11px;text-align:center;padding:8px;">⚠️ ${errorMsg.replace(/"/g, '&quot;')}</div>`;
+            state.loading.innerHTML = `<div style="color:#e06c75;font-size:11px;text-align:center;padding:8px;">⚠️ </div>`;
+            state.loading.querySelector('div')!.textContent = `⚠️ ${errorMsg}`;
             state.loading.style.display = 'flex';
           }
         }

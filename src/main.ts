@@ -166,9 +166,10 @@ class PDFiuhApp {
     // Show boot loading again
     this.bootScreen.innerHTML = `
       <div class="boot-spinner"></div>
-      <div id="boot-status">Caricamento di ${file.name}...</div>
+      <div id="boot-status"></div>
     `;
     this.bootStatus = document.getElementById('boot-status')!;
+    this.bootStatus.textContent = `Caricamento di ${file.name}...`;
 
     try {
       const arrayBuffer = await file.arrayBuffer();
