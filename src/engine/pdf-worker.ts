@@ -62,7 +62,12 @@ function evictOldest(): void {
 async function getPage(num: number): Promise<PDFPage> {
   if (!pdfDoc) throw new Error('PDF not loaded');
   const cached = pageCache.get(num);
-  if (cached) return cached;
+  if (cached) {
+    // LRU: move to end
+    pageCache.delete(num);
+    pageCache.set(num, cached);
+    return cached;
+  }
   const page = await pdfDoc.getPage(num);
   evictOldest();
   pageCache.set(num, page);
