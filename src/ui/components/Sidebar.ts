@@ -46,39 +46,52 @@ class PDFiuhSidebar extends HTMLElement {
   }
 
   private build(): void {
-    const style = document.createElement('style');
-    style.textContent = viewerCSS;
-    this.root.appendChild(style);
+    this.injectStyles();
 
     const container = document.createElement('div');
     container.style.cssText = 'display:flex;flex-direction:column;height:100%;overflow:hidden;';
 
     const activeTab = store.get('sidebarTab');
-    container.innerHTML = `
-      <div class="sidebar-tabs">
-        <button class="sidebar-tab${activeTab === 'toc' ? ' active' : ''}" data-tab="toc" title="Indice">
-          ${ICONS.toc}
-          <span>Indice</span>
-        </button>
-        <button class="sidebar-tab${activeTab === 'thumbnails' ? ' active' : ''}" data-tab="thumbnails" title="Miniature">
-          ${ICONS.thumbs}
-          <span>Pagine</span>
-        </button>
-      </div>
-      <div class="sidebar-content" id="sidebar-content"></div>
-    `;
+    container.innerHTML = this.buildContainerHTML(activeTab);
 
     this.root.appendChild(container);
 
-    // Tab clicks
+    this.bindTabClicks(container);
+    this.renderTabContent(activeTab);
+  }
+
+  private injectStyles(): void {
+    const style = document.createElement('style');
+    style.textContent = viewerCSS;
+    this.root.appendChild(style);
+  }
+
+  private buildContainerHTML(activeTab: string): string {
+    return `
+      <div class="sidebar-tabs">
+        ${this.buildTabBtn('toc', ICONS.toc, 'Indice', 'Indice', activeTab)}
+        ${this.buildTabBtn('thumbnails', ICONS.thumbs, 'Miniature', 'Pagine', activeTab)}
+      </div>
+      <div class="sidebar-content" id="sidebar-content"></div>
+    `;
+  }
+
+  private buildTabBtn(tabId: string, icon: string, title: string, label: string, activeTab: string): string {
+    const isActive = activeTab === tabId ? ' active' : '';
+    return `
+        <button class="sidebar-tab${isActive}" data-tab="${tabId}" title="${title}">
+          ${icon}
+          <span>${label}</span>
+        </button>`;
+  }
+
+  private bindTabClicks(container: HTMLElement): void {
     container.querySelectorAll('.sidebar-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         const t = (tab as HTMLElement).dataset.tab as 'toc' | 'thumbnails';
         store.set('sidebarTab', t);
       });
     });
-
-    this.renderTabContent(activeTab);
   }
 
   private bindStore(): void {
