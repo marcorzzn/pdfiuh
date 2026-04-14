@@ -182,48 +182,48 @@ class PDFiuhApp {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private messageHandlers: Record<string, (data: { type: string, payload?: any, message?: string }) => void> = {
+    'LOADED': (data) => {
+      this.updateStatus('Costruzione interfaccia...');
+      this.setupMainUI(data.payload.totalPages, data.payload.outline, data.payload.pageWidth, data.payload.pageHeight);
+    },
+    'RENDERED': (data) => {
+      // Forward RENDERED page to the Viewer component
+      this.viewerElement?.handleWorkerMessage(data);
+    },
+    'THUMBNAIL_RENDERED': (data) => {
+      // Forward thumbnail to Sidebar
+      this.sidebarElement?.handleThumbnailRendered(
+        data.payload?.pageNumber,
+        data.payload?.bitmap,
+        data.payload?.width,
+        data.payload?.height
+      );
+    },
+    'TEXT_EXTRACTED': (data) => {
+      // Text extraction result — used by find-bar via viewer
+      if (data.payload) {
+        bus.publish('text-extracted', { pageNumber: data.payload.pageNumber, text: data.payload.text });
+      }
+    },
+    'PAGE_COUNT': () => {
+      // Fast page count (before full load)
+    },
+    'PDF_BUFFER': (data) => {
+      exportPDF(store.get('docId'), data.payload.buffer, this.activeFile?.name || 'document.pdf');
+    },
+    'ERROR': (data) => {
+      this.handleCriticalError(data.message || 'Errore sconosciuto del worker');
+    }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private handleWorkerMessage(data: { type: string, payload?: any, message?: string }) {
-    const { type, payload, message } = data;
-
-    switch (type) {
-      case 'LOADED':
-        this.updateStatus('Costruzione interfaccia...');
-        this.setupMainUI(payload.totalPages, payload.outline, payload.pageWidth, payload.pageHeight);
-        break;
-
-      case 'RENDERED':
-        // Forward RENDERED page to the Viewer component
-        this.viewerElement?.handleWorkerMessage(data);
-        break;
-
-      case 'THUMBNAIL_RENDERED':
-        // Forward thumbnail to Sidebar
-        this.sidebarElement?.handleThumbnailRendered(
-          payload?.pageNumber,
-          payload?.bitmap,
-          payload?.width,
-          payload?.height
-        );
-        break;
-
-      case 'TEXT_EXTRACTED':
-        // Text extraction result — used by find-bar via viewer
-        if (payload) {
-          bus.publish('text-extracted', { pageNumber: payload.pageNumber, text: payload.text });
-        }
-        break;
-
-      case 'PAGE_COUNT':
-        // Fast page count (before full load)
-        break;
-
-      case 'PDF_BUFFER':
-        exportPDF(store.get('docId'), payload.buffer, this.activeFile?.name || 'document.pdf');
-        break;
-
-      case 'ERROR':
-        this.handleCriticalError(message || 'Errore sconosciuto del worker');
-        break;
+    const handler = this.messageHandlers[data.type];
+    if (handler) {
+      handler(data);
+    } else {
+      console.warn(`[Main] Unhandled worker message type: ${data.type}`);
     }
   }
 
