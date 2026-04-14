@@ -15,7 +15,7 @@ class PDFiuhFindBar extends HTMLElement {
   private root: ShadowRoot;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private viewer: any = null;
-  private pageTexts = new Map<number, string>();
+  private pageTexts = new Map<number, { original: string; lower: string }>();
   private searchMatches: SearchMatch[] = [];
   private currentMatch = -1;
   private lastQuery = '';
@@ -154,7 +154,7 @@ class PDFiuhFindBar extends HTMLElement {
     const handler = (e: MessageEvent) => {
       if (e.data.type === 'TEXT_EXTRACTED') {
         const { pageNumber, text } = e.data.payload;
-        this.pageTexts.set(pageNumber, text);
+        this.pageTexts.set(pageNumber, { original: text, lower: text.toLowerCase() });
         // Re-run search if we have a query
         if (this.lastQuery) this.performSearch(this.lastQuery);
       } else if (e.data.type === 'TEXT_EXTRACTED_BATCH') {
@@ -201,13 +201,14 @@ class PDFiuhFindBar extends HTMLElement {
     const lower = query.toLowerCase();
     this.searchMatches = [];
 
-    for (const [page, text] of this.pageTexts) {
+    for (const [page, textObj] of this.pageTexts) {
       let idx = 0;
-      const textLower = text.toLowerCase();
+      const textLower = textObj.lower;
+      const textOriginal = textObj.original;
       while ((idx = textLower.indexOf(lower, idx)) !== -1) {
         this.searchMatches.push({
           page,
-          text: text.substring(idx, idx + query.length),
+          text: textOriginal.substring(idx, idx + query.length),
           charOffset: idx,
           length: query.length,
         });
