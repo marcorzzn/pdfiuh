@@ -211,6 +211,8 @@ export async function exportXFDF(docId: string, fileName: string): Promise<void>
 
 export async function importXFDF(docId: string, xfdfString: string): Promise<void> {
   const imported = parseXFDF(xfdfString);
+  const promises: Promise<string>[] = [];
+
   for (const ann of imported) {
     if (ann.docId && ann.docId !== docId) {
       console.warn(`XFDF annot docId mismatch: ${ann.docId} != ${docId}`);
@@ -226,15 +228,19 @@ export async function importXFDF(docId: string, xfdfString: string): Promise<voi
       };
     }
 
-    await storage.saveAnnotation(docId, {
-      page: ann.pageNumber,
-      type: ann.type === 'text' ? 'note' : ann.type as any,
-      color: ann.data.color || '#000000',
-      rect,
-      text: ann.data.text,
-      points: ann.data.paths,
-    });
+    promises.push(
+      storage.saveAnnotation(docId, {
+        page: ann.pageNumber,
+        type: ann.type === 'text' ? 'note' : ann.type as any,
+        color: ann.data.color || '#000000',
+        rect,
+        text: ann.data.text,
+        points: ann.data.paths,
+      })
+    );
   }
+
+  await Promise.all(promises);
 }
 
 // ---- Helpers ----
