@@ -98,6 +98,12 @@ class Store {
     };
   }
 
+  /** INTERNAL USE ONLY — Clears all listeners for testing purposes */
+  _clearListeners(): void {
+    this.listeners.clear();
+    this.globalListeners.clear();
+  }
+
   private notify<K extends keyof AppState>(key: K): void {
     const keyListeners = this.listeners.get(key);
     if (keyListeners) {
