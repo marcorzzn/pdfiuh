@@ -147,6 +147,44 @@ self.onmessage = async (e: MessageEvent) => {
         break;
       }
 
+      /* ---- GET_TEXT_BATCH (optimized search indexing) ---- */
+      case 'GET_TEXT_BATCH': {
+        const { pageNumbers } = payload;
+        if (!pdfDoc) return;
+
+        let batch: { pageNumber: number, text: string }[] = [];
+        const BATCH_SIZE = 10;
+
+        for (const pageNumber of pageNumbers) {
+          try {
+            const page = await getPage(pageNumber);
+            const tc = await page.getTextContent();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const text = tc.items.map((it: any) => it.str ?? '').join(' ');
+            batch.push({ pageNumber, text });
+
+            if (batch.length >= BATCH_SIZE) {
+              self.postMessage({
+                type: 'TEXT_EXTRACTED_BATCH',
+                payload: { results: batch },
+              });
+              batch = [];
+            }
+          } catch (err) {
+            console.error(`[pdf-worker] Error extracting text for page ${pageNumber}:`, err);
+          }
+        }
+
+        // Send any remaining results
+        if (batch.length > 0) {
+          self.postMessage({
+            type: 'TEXT_EXTRACTED_BATCH',
+            payload: { results: batch },
+          });
+        }
+        break;
+      }
+
       /* ---- GET_PAGE_COUNT (fast, before full load) ---- */
       case 'GET_PAGE_COUNT': {
         if (!pdfDoc) {

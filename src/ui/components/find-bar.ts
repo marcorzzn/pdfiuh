@@ -157,16 +157,28 @@ class PDFiuhFindBar extends HTMLElement {
         this.pageTexts.set(pageNumber, text);
         // Re-run search if we have a query
         if (this.lastQuery) this.performSearch(this.lastQuery);
+      } else if (e.data.type === 'TEXT_EXTRACTED_BATCH') {
+        const { results } = e.data.payload;
+        for (const res of results) {
+          this.pageTexts.set(res.pageNumber, res.text);
+        }
+        // Re-run search once per batch
+        if (this.lastQuery) this.performSearch(this.lastQuery);
       }
     };
 
     worker.addEventListener('message', handler);
 
-    // Request text for all pages (lazy, non-blocking)
+    // Request text for all missing pages using a single batched message
+    const missingPages: number[] = [];
     for (let i = 1; i <= totalPages; i++) {
       if (!this.pageTexts.has(i)) {
-        worker.postMessage({ type: 'GET_TEXT', payload: { pageNumber: i } });
+        missingPages.push(i);
       }
+    }
+
+    if (missingPages.length > 0) {
+      worker.postMessage({ type: 'GET_TEXT_BATCH', payload: { pageNumbers: missingPages } });
     }
   }
 
