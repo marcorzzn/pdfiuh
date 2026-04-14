@@ -5,7 +5,6 @@
  */
 import { store } from '../state/store';
 import { storage, type Annotation } from './storage';
-import { AnnotationEngine } from './engine';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
