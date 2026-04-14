@@ -49,6 +49,7 @@ class PDFiuhViewer extends HTMLElement {
   private baseHeight = 842;
 
   private findBarElement: HTMLElement | null = null;
+  private highlightedSpans = new Set<HTMLSpanElement>();
 
   constructor() {
     super();
@@ -513,31 +514,37 @@ class PDFiuhViewer extends HTMLElement {
     const state = this.pages.get(pageNum);
     if (!state || state.textLayerCharMap.length === 0) return;
 
-    // Clear previous highlights on this page
-    state.textLayer.querySelectorAll('.find-match, .find-match-current').forEach(el => {
-      el.classList.remove('find-match', 'find-match-current');
-    });
+    // Note: clearFindHighlights() is normally called before this to clear previous search state across all pages.
+    // However, if we need to clear specifically on this page only, we can iterate over our stored set
+    // and remove only spans belonging to this page.
+    for (const span of this.highlightedSpans) {
+      if (state.textLayer.contains(span)) {
+        span.classList.remove('find-match', 'find-match-current');
+        this.highlightedSpans.delete(span);
+      }
+    }
 
     const matchEnd = charOffset + matchLength;
-    const highlightedSpans = new Set<HTMLSpanElement>();
+    const currentHighlightedSpans = new Set<HTMLSpanElement>();
 
     // Find all spans that overlap with the match range
     for (const entry of state.textLayerCharMap) {
       const spanEnd = entry.offset + entry.length;
       // Check if this span overlaps with the match range
       if (entry.offset < matchEnd && spanEnd > charOffset) {
-        highlightedSpans.add(entry.span);
+        currentHighlightedSpans.add(entry.span);
+        this.highlightedSpans.add(entry.span);
       }
     }
 
     // Apply highlight classes
-    for (const span of highlightedSpans) {
+    for (const span of currentHighlightedSpans) {
       span.classList.add(isCurrent ? 'find-match-current' : 'find-match');
     }
 
     // Scroll first highlighted span into view
-    if (isCurrent && highlightedSpans.size > 0) {
-      const firstSpan = highlightedSpans.values().next().value;
+    if (isCurrent && currentHighlightedSpans.size > 0) {
+      const firstSpan = currentHighlightedSpans.values().next().value;
       if (firstSpan) {
         firstSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
@@ -546,11 +553,10 @@ class PDFiuhViewer extends HTMLElement {
 
   /** Clear all find highlights */
   clearFindHighlights(): void {
-    this.pages.forEach(state => {
-      state.textLayer.querySelectorAll('.find-match, .find-match-current').forEach(el => {
-        el.classList.remove('find-match', 'find-match-current');
-      });
+    this.highlightedSpans.forEach(span => {
+      span.classList.remove('find-match', 'find-match-current');
     });
+    this.highlightedSpans.clear();
   }
 
   getWorker(): Worker | null {
@@ -565,6 +571,7 @@ class PDFiuhViewer extends HTMLElement {
     this.pages.clear();
     this.pendingRenders.clear();
     this.pagesContainer.innerHTML = '';
+    this.highlightedSpans.clear();
   }
 
   disconnectedCallback(): void {
