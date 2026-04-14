@@ -4,7 +4,7 @@
  */
 type Callback = (data: any) => void;
 
-class EventBus {
+export class EventBus {
   private subscribers: Map<string, Callback[]> = new Map();
 
   publish(event: string, data?: any) {
