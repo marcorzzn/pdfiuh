@@ -72,11 +72,11 @@ async function getPage(num: number): Promise<PDFPage> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function extractOutline(items: any[] | null): Promise<any[]> {
   if (!items || !pdfDoc) return [];
-  const result = [];
-  for (const item of items) {
+
+  const promises = items.map(async (item) => {
     let pageNum = 0;
     try {
-      if (item.dest) {
+      if (item.dest && pdfDoc) {
         const dest = typeof item.dest === 'string'
           ? await pdfDoc.getDestination(item.dest)
           : item.dest;
@@ -86,13 +86,14 @@ async function extractOutline(items: any[] | null): Promise<any[]> {
         }
       }
     } catch { /* skip unresolvable dest */ }
-    result.push({
+    return {
       title: item.title || '',
       page: pageNum,
       items: await extractOutline(item.items || []),
-    });
-  }
-  return result;
+    };
+  });
+
+  return Promise.all(promises);
 }
 
 /* ---------- message handler ---------- */
