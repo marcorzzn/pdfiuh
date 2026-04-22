@@ -127,6 +127,8 @@ self.onmessage = async (e: MessageEvent) => {
           cMapPacked: true,
           // Enable font rendering for non-embedded fonts
           standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
+          disableFontFace: true,
+          useSystemFonts: false,
         });
         pdfDoc = await loadingTask.promise;
 
@@ -206,7 +208,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       /* ---- RENDER (page + text content) ---- */
       case 'RENDER': {
-        const { pageNumber, scale } = payload;
+        const { pageNumber, scale, rotation = 0 } = payload;
         if (!pdfDoc) {
           self.postMessage({ type: 'ERROR', message: 'PDF not loaded' });
           return;
@@ -217,7 +219,7 @@ self.onmessage = async (e: MessageEvent) => {
         }
 
         const page = await getPage(pageNumber);
-        const viewport = page.getViewport({ scale });
+        const viewport = page.getViewport({ scale, rotation });
         const w = Math.ceil(viewport.width);
         const h = Math.ceil(viewport.height);
 

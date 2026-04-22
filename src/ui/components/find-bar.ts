@@ -32,12 +32,12 @@ class PDFiuhFindBar extends HTMLElement {
 
   connectedCallback(): void {
     this.build();
-    this.startIndexing();
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   setViewer(viewer: any): void {
     this.viewer = viewer;
+    this.startIndexing();
   }
 
   private build(): void {

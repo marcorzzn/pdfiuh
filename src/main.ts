@@ -77,6 +77,14 @@ class PDFiuhApp {
     });
     // Set initial
     body.setAttribute('data-theme', store.get('theme'));
+
+    store.subscribe('sidebarOpen', (open) => {
+      if (open) {
+        this.appContainer.classList.remove('sidebar-collapsed');
+      } else {
+        this.appContainer.classList.add('sidebar-collapsed');
+      }
+    });
   }
 
   private promptOpenFile() {
@@ -275,7 +283,10 @@ class PDFiuhApp {
     console.error('[CRITICAL ERROR]', err);
     if (!this.bootStatus) return;
     this.bootStatus.style.color = '#e06c75';
-    this.bootStatus.innerText = `Errore Critico: ${err}`;
+    this.bootStatus.innerHTML = `
+      <div>Errore Critico: ${err}</div>
+      <button onclick="window.location.reload()" style="margin-top: 16px; padding: 6px 16px; border-radius: 4px; border: none; background: var(--fluent-accent, #0067c0); color: white; cursor: pointer;">Riprova</button>
+    `;
     this.bootScreen.classList.remove('hidden');
   }
 }

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'pdfiuh-v1';
+const CACHE_VERSION = 'pdfiuh-v2';
 
 self.addEventListener('install', (event) => {
   // Cache solo la shell HTML stabile

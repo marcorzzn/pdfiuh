@@ -108,7 +108,8 @@ class PDFiuhViewer extends HTMLElement {
   }
 
   private bindStore(): void {
-    store.subscribe('zoom', () => this.onZoomChange());
+    store.subscribe('zoom', () => this.onLayoutChange());
+    store.subscribe('rotation', () => this.onLayoutChange());
 
     store.subscribe('activeTool', (tool) => {
       this.pages.forEach(page => {
@@ -144,8 +145,12 @@ class PDFiuhViewer extends HTMLElement {
     bus.subscribe('fit-page', () => {
       const containerWidth = this.scrollContainer.clientWidth - 48;
       const containerHeight = this.scrollContainer.clientHeight - 48;
-      const zoomW = containerWidth / this.baseWidth;
-      const zoomH = containerHeight / this.baseHeight;
+      const rot = store.get('rotation');
+      const isLandscape = rot === 90 || rot === 270;
+      const w = isLandscape ? this.baseHeight : this.baseWidth;
+      const h = isLandscape ? this.baseWidth : this.baseHeight;
+      const zoomW = containerWidth / w;
+      const zoomH = containerHeight / h;
       const newZoom = Math.min(zoomW, zoomH);
       store.set('zoom', +Math.max(0.25, Math.min(4.0, newZoom)).toFixed(2));
     });
@@ -164,14 +169,18 @@ class PDFiuhViewer extends HTMLElement {
 
     const totalPages = store.get('totalPages');
     const zoom = store.get('zoom');
+    const rot = store.get('rotation');
+    const isLandscape = rot === 90 || rot === 270;
+    const w = isLandscape ? this.baseHeight : this.baseWidth;
+    const h = isLandscape ? this.baseWidth : this.baseHeight;
 
     for (let i = 1; i <= totalPages; i++) {
       const container = document.createElement('div');
       container.className = 'page-container';
       container.dataset.page = i.toString();
 
-      const cssWidth = Math.round(this.baseWidth * zoom);
-      const cssHeight = Math.round(this.baseHeight * zoom);
+      const cssWidth = Math.round(w * zoom);
+      const cssHeight = Math.round(h * zoom);
       container.style.width = `${cssWidth}px`;
       container.style.height = `${cssHeight}px`;
 
@@ -254,10 +263,13 @@ class PDFiuhViewer extends HTMLElement {
     if (!state) return;
 
     const zoom = store.get('zoom');
+    const rotation = store.get('rotation');
     const dpr = window.devicePixelRatio || 1;
     const renderScale = zoom * dpr;
 
-    // Skip if already rendered at this scale
+    // Skip if already rendered at this scale/rotation
+    // Add a small trick: encode rotation into renderScale or store it separately
+    // Let's just track renderScale and re-render always on layout change
     if (state.rendered && Math.abs(state.renderScale - renderScale) < 0.01) return;
 
     this.renderQueue.add(pageNum);
@@ -279,12 +291,13 @@ class PDFiuhViewer extends HTMLElement {
         if (!state) continue;
 
         const zoom = store.get('zoom');
+        const rotation = store.get('rotation');
         const dpr = window.devicePixelRatio || 1;
         const renderScale = zoom * dpr;
 
         this.worker!.postMessage({
           type: 'RENDER',
-          payload: { pageNumber: pageNum, scale: renderScale },
+          payload: { pageNumber: pageNum, scale: renderScale, rotation },
         });
       }
       this.isRendering = false;
@@ -329,9 +342,14 @@ class PDFiuhViewer extends HTMLElement {
         // Init annotation layer
         if (!state.annotLayer) {
           const docId = store.get('docId');
+          // Provide dimensions taking rotation into account
+          const rot = store.get('rotation');
+          const isLandscape = rot === 90 || rot === 270;
+          const w = isLandscape ? this.baseHeight : this.baseWidth;
+          const h = isLandscape ? this.baseWidth : this.baseHeight;
           state.annotLayer = new SVGAnnotationLayer(
             state.svg, pageNumber, docId,
-            this.baseWidth * zoom, this.baseHeight * zoom
+            w * zoom, h * zoom
           );
           state.annotLayer.loadAnnotations();
         }
@@ -404,8 +422,18 @@ class PDFiuhViewer extends HTMLElement {
       if (!tx || tx.length < 6) continue;
 
       const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+      // Normalize transforms to handle rotation
+      // tx is [a, b, c, d, e, f] - affine transform
+      // We rely on PDF.js text layer output, x/y are top-left in CSS space
+      
+      const rot = store.get('rotation');
+      const isLandscape = rot === 90 || rot === 270;
+      const baseW = isLandscape ? this.baseHeight : this.baseWidth;
+      const baseH = isLandscape ? this.baseWidth : this.baseHeight;
+      const pageHeightCanvas = baseH * zoom * dpr;
+      
       const x = tx[4] / scale;
-      const y = (this.baseHeight * zoom * dpr - tx[5]) / scale - fontSize / scale;
+      const y = (pageHeightCanvas - tx[5]) / scale - fontSize / scale;
 
       span.style.left = `${x}px`;
       span.style.top = `${y}px`;
@@ -443,23 +471,33 @@ class PDFiuhViewer extends HTMLElement {
     state.textLayerFullText = fullText;
   }
 
-  private onZoomChange(): void {
+  private onLayoutChange(): void {
     const zoom = store.get('zoom');
+    const rot = store.get('rotation');
+    const isLandscape = rot === 90 || rot === 270;
+    const w = isLandscape ? this.baseHeight : this.baseWidth;
+    const h = isLandscape ? this.baseWidth : this.baseHeight;
 
     // Update placeholder sizes (no DOM rebuild)
     this.pages.forEach((state) => {
-      const cssWidth = Math.round(this.baseWidth * zoom);
-      const cssHeight = Math.round(this.baseHeight * zoom);
+      const cssWidth = Math.round(w * zoom);
+      const cssHeight = Math.round(h * zoom);
       state.container.style.width = `${cssWidth}px`;
       state.container.style.height = `${cssHeight}px`;
 
-      // Mark as needing re-render
+      // Mark as needing re-render by clearing renderScale
+      state.renderScale = 0;
       state.rendered = false;
       state.loading.style.display = 'flex';
+      
+      // Clear canvas to prevent old content from showing while rendering
+      const ctx = state.canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, state.canvas.width, state.canvas.height);
+      state.textLayer.innerHTML = '';
 
       // Update annotation layer dimensions
       if (state.annotLayer) {
-        state.annotLayer.updateDimensions(this.baseWidth * zoom, this.baseHeight * zoom);
+        state.annotLayer.updateDimensions(w * zoom, h * zoom);
       }
     });
 
@@ -493,8 +531,9 @@ class PDFiuhViewer extends HTMLElement {
   scrollToPage(pageNum: number): void {
     const state = this.pages.get(pageNum);
     if (!state) return;
-    // Smooth scroll to page with edge-like easing
-    state.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Set scrollTop directly instead of scrollIntoView, which has issues in shadow DOM
+    // Allow a little padding at top
+    this.scrollContainer.scrollTop = Math.max(0, state.container.offsetTop - 12);
     store.set('currentPage', pageNum);
   }
 
