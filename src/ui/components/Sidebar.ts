@@ -169,6 +169,9 @@ class PDFiuhSidebar extends HTMLElement {
     const content = this.root.getElementById('sidebar-content');
     if (!content) return;
 
+    this.thumbnailCanvases.clear();
+    this.thumbnailsRequested.clear();
+
     const totalPages = store.get('totalPages');
     if (totalPages === 0) {
       content.innerHTML = '<div class="toc-empty">Nessun documento aperto</div>';

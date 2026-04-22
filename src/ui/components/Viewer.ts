@@ -50,6 +50,7 @@ class PDFiuhViewer extends HTMLElement {
 
   private findBarElement: HTMLElement | null = null;
   private highlightedSpans = new Set<HTMLSpanElement>();
+  private scrollTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     super();
@@ -77,8 +78,11 @@ class PDFiuhViewer extends HTMLElement {
     this.scrollContainer.appendChild(this.pagesContainer);
     this.root.appendChild(this.scrollContainer);
 
-    // Scroll tracking for current page
-    this.scrollContainer.addEventListener('scroll', () => this.updateCurrentPage(), { passive: true });
+    // Scroll tracking for current page (debounced for performance)
+    this.scrollContainer.addEventListener('scroll', () => {
+      if (this.scrollTimeout) clearTimeout(this.scrollTimeout);
+      this.scrollTimeout = setTimeout(() => this.updateCurrentPage(), 100);
+    }, { passive: true });
 
     // Mouse wheel zoom with Ctrl
     this.scrollContainer.addEventListener('wheel', (e) => {
@@ -112,8 +116,6 @@ class PDFiuhViewer extends HTMLElement {
           page.svg.classList.remove('tool-active', 'tool-eraser');
         } else if (tool === 'eraser') {
           page.svg.classList.add('tool-active', 'tool-eraser');
-          page.svg.classList.remove('tool-eraser');
-          page.svg.classList.add('tool-eraser');
         } else {
           page.svg.classList.add('tool-active');
           page.svg.classList.remove('tool-eraser');
@@ -322,7 +324,7 @@ class PDFiuhViewer extends HTMLElement {
         bitmap.close();
 
         // Build text layer
-        this.buildTextLayer(state.textLayer, textItems, textStyles, zoom, dpr);
+        this.buildTextLayer(state.textLayer, textItems, textStyles, zoom, dpr, pageNumber);
 
         // Init annotation layer
         if (!state.annotLayer) {
@@ -376,13 +378,13 @@ class PDFiuhViewer extends HTMLElement {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     styles: any,
     zoom: number,
-    dpr: number
+    dpr: number,
+    pageNum: number
   ): void {
     container.innerHTML = '';
     if (!items) return;
 
     const scale = zoom * dpr;
-    const pageNum = parseInt((container.closest('.page-container') as HTMLElement | null)?.dataset.page || '0');
     const state = this.pages.get(pageNum);
     if (!state) return;
 
@@ -445,7 +447,7 @@ class PDFiuhViewer extends HTMLElement {
     const zoom = store.get('zoom');
 
     // Update placeholder sizes (no DOM rebuild)
-    this.pages.forEach((state, pageNum) => {
+    this.pages.forEach((state) => {
       const cssWidth = Math.round(this.baseWidth * zoom);
       const cssHeight = Math.round(this.baseHeight * zoom);
       state.container.style.width = `${cssWidth}px`;
@@ -454,6 +456,11 @@ class PDFiuhViewer extends HTMLElement {
       // Mark as needing re-render
       state.rendered = false;
       state.loading.style.display = 'flex';
+
+      // Update annotation layer dimensions
+      if (state.annotLayer) {
+        state.annotLayer.updateDimensions(this.baseWidth * zoom, this.baseHeight * zoom);
+      }
     });
 
     // Re-render visible pages

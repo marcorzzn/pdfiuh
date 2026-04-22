@@ -271,11 +271,11 @@ export class SVGAnnotationLayer {
     }
 
     if (tool === 'highlight' && this.tempRect && this.highlightStart) {
-      this.tempRect.remove();
       const x = parseFloat(this.tempRect.getAttribute('x') || '0');
       const y = parseFloat(this.tempRect.getAttribute('y') || '0');
       const w = parseFloat(this.tempRect.getAttribute('width') || '0');
       const h = parseFloat(this.tempRect.getAttribute('height') || '0');
+      this.tempRect.remove();
 
       if (w > 0.005 && h > 0.005) {
         await storage.saveAnnotation(this.docId, {
@@ -327,11 +327,11 @@ export class SVGAnnotationLayer {
     console.log('[SVGLayer] Annotation clicked:', ann.id);
   }
 
-  private handleNoteClick(e: Event, ann: Annotation): void {
+  private async handleNoteClick(e: Event, ann: Annotation): Promise<void> {
     e.stopPropagation();
     if (store.get('activeTool') === 'eraser') {
-      storage.deleteAnnotation(ann.id);
-      this.loadAnnotations();
+      await storage.deleteAnnotation(ann.id);
+      await this.loadAnnotations();
       return;
     }
 

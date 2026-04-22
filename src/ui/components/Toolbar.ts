@@ -63,8 +63,6 @@ class PDFiuhToolbar extends HTMLElement {
     const color = store.get('activeColor');
     const zoom = store.get('zoom');
 
-    this.root.appendChild(style);
-
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex;align-items:center;width:100%;gap:2px;';
     bar.innerHTML = `

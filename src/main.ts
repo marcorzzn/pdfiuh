@@ -7,7 +7,6 @@ import { store } from './state/store';
 import { bus } from './core/event-bus';
 import { detectProfile } from './engine/device-profile';
 import { exportPDF } from './annotations/export';
-import { storage } from './annotations/storage';
 
 class PDFiuhApp {
   private worker: Worker | null = null;

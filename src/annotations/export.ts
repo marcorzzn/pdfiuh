@@ -171,7 +171,7 @@ export async function exportPDF(docId: string, pdfBuffer: ArrayBuffer, fileName:
   }
 
   const pdfBytes = await pdfDoc.save();
-  downloadBlob(new Blob([pdfBytes as unknown as ArrayBuffer], { type: 'application/pdf' }), fileName.replace('.pdf', '_annots.pdf'));
+  downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), fileName.replace('.pdf', '_annots.pdf'));
 }
 
 export async function exportXFDF(docId: string, fileName: string): Promise<void> {

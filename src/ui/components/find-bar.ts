@@ -22,6 +22,8 @@ class PDFiuhFindBar extends HTMLElement {
   private indexing = false;
   private input: HTMLInputElement | null = null;
   private countEl: HTMLElement | null = null;
+  private workerHandler: ((e: MessageEvent) => void) | null = null;
+  private workerRef: Worker | null = null;
 
   constructor() {
     super();
@@ -149,6 +151,7 @@ class PDFiuhFindBar extends HTMLElement {
 
     const worker = this.viewer?.getWorker?.();
     if (!worker) return;
+    this.workerRef = worker;
 
     const totalPages = store.get('totalPages');
     const handler = (e: MessageEvent) => {
@@ -160,13 +163,14 @@ class PDFiuhFindBar extends HTMLElement {
       } else if (e.data.type === 'TEXT_EXTRACTED_BATCH') {
         const { results } = e.data.payload;
         for (const res of results) {
-          this.pageTexts.set(res.pageNumber, res.text);
+          this.pageTexts.set(res.pageNumber, { original: res.text, lower: res.text.toLowerCase() });
         }
         // Re-run search once per batch
         if (this.lastQuery) this.performSearch(this.lastQuery);
       }
     };
 
+    this.workerHandler = handler;
     worker.addEventListener('message', handler);
 
     // Request text for all missing pages using a single batched message
@@ -269,6 +273,14 @@ class PDFiuhFindBar extends HTMLElement {
   private close(): void {
     this.viewer?.clearFindHighlights?.();
     store.set('findBarOpen', false);
+  }
+
+  disconnectedCallback(): void {
+    if (this.workerRef && this.workerHandler) {
+      this.workerRef.removeEventListener('message', this.workerHandler);
+      this.workerRef = null;
+      this.workerHandler = null;
+    }
   }
 }
 

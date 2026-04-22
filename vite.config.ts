@@ -15,6 +15,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf-lib': ['pdf-lib'],
+          'dexie': ['dexie'],
+        }
+      }
+    },
     terserOptions: {
       compress: { drop_console: false, drop_debugger: true }
     }
